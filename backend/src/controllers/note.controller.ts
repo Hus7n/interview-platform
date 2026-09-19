@@ -1,34 +1,96 @@
-import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import { noteService } from '../services/note.service';
+import type { NextFunction, Request, Response } from "express";
+import { notesService } from "../services/notes.service.js";
+import {
+    CreateNoteSchema,
+    InterviewIdParamSchema,
+    ListNotesSchema,
+    NoteIdSchema,
+    UpdateNoteSchema,
+} from "../validators/notes.schema.js";
+import { parseRequest, getAuthUser } from "../utils/validate.js";
 
-const saveSchema = z.object({
-  content: z.string(),
-  isPrivate: z.boolean().default(true),
-});
+export const notesController = {
+    async createNote(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { interviewId } = parseRequest(InterviewIdParamSchema, req.params);
+            const input = parseRequest(CreateNoteSchema, req.body);
+            const note = await notesService.createNote(interviewId, input, getAuthUser(req));
 
-export const noteController = {
-  async save(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = saveSchema.parse(req.body);
-      const note = await noteService.save(
-        req.params.interviewId,
-        req.user!.userId,
-        data.content,
-        data.isPrivate
-      );
-      res.json(note);
-    } catch (e) {
-      next(e);
-    }
-  },
+            res.status(201).json({
+                success: true,
+                message: "Note created successfully",
+                data: { note },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
 
-  async list(req: Request, res: Response, next: NextFunction) {
-    try {
-      const notes = await noteService.list(req.params.interviewId, req.user!.userId);
-      res.json(notes);
-    } catch (e) {
-      next(e);
-    }
-  },
+    async listNotes(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { interviewId } = parseRequest(InterviewIdParamSchema, req.params);
+            const filters = parseRequest(ListNotesSchema, req.query);
+            const result = await notesService.listNotes(interviewId, filters, getAuthUser(req));
+
+            res.status(200).json({
+                success: true,
+                data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async getNote(req: Request, res: Response, next: NextFunction) {
+        try {
+            const params = parseRequest(
+                InterviewIdParamSchema.extend({ noteId: NoteIdSchema.shape.noteId }),
+                req.params
+            );
+            const note = await notesService.getNote(params.noteId, params.interviewId, getAuthUser(req));
+
+            res.status(200).json({
+                success: true,
+                data: { note },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async updateNote(req: Request, res: Response, next: NextFunction) {
+        try {
+            const params = parseRequest(
+                InterviewIdParamSchema.extend({ noteId: NoteIdSchema.shape.noteId }),
+                req.params
+            );
+            const input = parseRequest(UpdateNoteSchema, req.body);
+            const note = await notesService.updateNote(params.noteId, params.interviewId, input, getAuthUser(req));
+
+            res.status(200).json({
+                success: true,
+                message: "Note updated successfully",
+                data: { note },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async deleteNote(req: Request, res: Response, next: NextFunction) {
+        try {
+            const params = parseRequest(
+                InterviewIdParamSchema.extend({ noteId: NoteIdSchema.shape.noteId }),
+                req.params
+            );
+            await notesService.deleteNote(params.noteId, params.interviewId, getAuthUser(req));
+
+            res.status(200).json({
+                success: true,
+                message: "Note deleted successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
 };

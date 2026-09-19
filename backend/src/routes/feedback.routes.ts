@@ -1,11 +1,13 @@
-import { Router } from 'express';
-import { feedbackController } from '../controllers/feedback.controller';
-import { authenticate } from '../middleware/auth';
+import { Router } from "express";
+import { authenticate } from "../middleware/auth.middleware.js";
+import { feedbackController } from "../controllers/feedback.controller.js";
 
-const router = Router();
+export const feedbackRouter = Router({ mergeParams: true });
 
-router.use(authenticate);
-router.get('/:interviewId', feedbackController.list);
-router.post('/:interviewId', feedbackController.submit);
+feedbackRouter.use(authenticate);
 
-export default router;
+feedbackRouter.post("/", feedbackController.createFeedback);
+feedbackRouter.get("/", feedbackController.listFeedback);
+feedbackRouter.get("/:feedbackId", feedbackController.getFeedback);
+feedbackRouter.patch("/:feedbackId", feedbackController.updateFeedback);
+feedbackRouter.delete("/:feedbackId", feedbackController.deleteFeedback);

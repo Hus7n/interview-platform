@@ -1,28 +1,59 @@
-import express from 'express';
-import cors from 'cors';
-import { env } from './config/env';
-import { errorHandler } from './middleware/errorHandler';
-import authRoutes from './routes/auth.routes';
-import interviewRoutes from './routes/interview.routes';
-import noteRoutes from './routes/note.routes';
-import feedbackRoutes from './routes/feedback.routes';
-import userRoutes from './routes/user.routes';
-import notificationRoutes from './routes/notification.routes';
+import express, { type NextFunction, type Request, type Response } from "express";
+import { env } from "./config/env.js";
+import cors from "cors";
+import helmet from "helmet";
+import morgan from "morgan";
+import cookieParser from "cookie-parser";
+import { authRouter } from "./routes/auth.routes.js";
+import { interviewRouter } from "./routes/interview.route.js";
+import { editorRouter } from "./routes/editor.routes.js";
+import { notesRouter } from "./routes/notes.routes.js";
+import { feedbackRouter } from "./routes/feedback.routes.js";
+import { notificationsRouter } from "./routes/notifications.routes.js";
+import { uploadRouter } from "./upload/upload.routes.js";
+import { executionRouter } from "./routes/execution.routes.js";
+import { analyticsRouter } from "./routes/analytics.routes.js";
+import { adminRouter } from "./routes/admin.routes.js";
+import { searchRouter } from "./routes/search.routes.js";
+import { auditRouter } from "./routes/audit.routes.js";
+import { sanitizeInput } from "./middleware/sanitize.js";
+import { authRateLimit, strictRateLimit, generalRateLimit } from "./middleware/rate-limit.js";
+import { errorResponse } from "./utils/error.js";
 
 const app = express();
+app.use(helmet());
+app.use(morgan("dev"));
 
-app.use(cors({ origin: env.FRONTEND_URL, credentials: true }));
+app.use(cors({ origin: env.frontendUrl, credentials: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(sanitizeInput);
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get("/health", (_req, res) => res.json({ status: "ok", message: "Server is running" }));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/interviews', interviewRoutes);
-app.use('/api/notes', noteRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/notifications', notificationRoutes);
+app.use("/api/auth", authRateLimit, authRouter);
+app.use("/api/interviews", generalRateLimit, interviewRouter);
+app.use("/api/editor", generalRateLimit, editorRouter);
+app.use("/api/interviews/:interviewId/notes", generalRateLimit, notesRouter);
+app.use("/api/interviews/:interviewId/feedback", generalRateLimit, feedbackRouter);
+app.use("/api/notifications", generalRateLimit, notificationsRouter);
+app.use("/api/uploads", generalRateLimit, uploadRouter);
+app.use("/api/execute", strictRateLimit, executionRouter);
+app.use("/api/analytics", generalRateLimit, analyticsRouter);
+app.use("/api/admin", generalRateLimit, adminRouter);
+app.use("/api/search", generalRateLimit, searchRouter);
+app.use("/api/audit", generalRateLimit, auditRouter);
 
-app.use(errorHandler);
+app.use("/uploads", express.static("uploads"));
+
+app.use((_req: Request, res: Response) => {
+    res.status(404).json({ error: "NOT_FOUND", message: "Route not found" });
+});
+
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const { statusCode, body } = errorResponse(err);
+    res.status(statusCode).json(body);
+});
 
 export default app;

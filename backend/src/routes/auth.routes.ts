@@ -1,11 +1,18 @@
-import { Router } from 'express';
-import { authController } from '../controllers/auth.controller';
-import { authenticate } from '../middleware/auth';
+import { Router } from "express";
+import { authController } from "../controllers/auth.controller.js";
+import { authenticate } from "../middleware/auth.middleware.js";
 
-const router = Router();
+export const authRouter = Router();
 
-router.post('/register', authController.register);
-router.post('/login', authController.login);
-router.get('/me', authenticate, authController.me);
+authRouter.post("/register", authController.register);
+authRouter.post("/login", authController.login);
+authRouter.post("/refresh", authController.refresh);
+authRouter.post("/logout", authController.logout);
+authRouter.post("/logout-all", authenticate, authController.logOutAll);
 
-export default router;
+authRouter.get("/me", authenticate, authController.me);
+authRouter.get("/token-info", authenticate, authController.tokenInfo);
+
+authRouter.get("/verify-email", authController.verifyEmail);
+authRouter.post("/forgot-password", authController.forgotPassword);
+authRouter.post("/reset-password", authController.resetPassword);

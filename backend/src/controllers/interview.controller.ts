@@ -1,84 +1,152 @@
-import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import { interviewService } from '../services/interview.service';
-
-const createSchema = z.object({
-  title: z.string().min(3),
-  description: z.string().optional(),
-  scheduledAt: z.string(),
-  durationMinutes: z.number().min(15).max(240).default(60),
-  language: z.string().default('javascript'),
-  interviewerId: z.string().uuid(),
-  candidateId: z.string().uuid(),
-});
-
-const updateSchema = z.object({
-  title: z.string().min(3).optional(),
-  description: z.string().optional(),
-  scheduledAt: z.string().optional(),
-  durationMinutes: z.number().min(15).max(240).optional(),
-  language: z.string().optional(),
-});
+import type { NextFunction, Request, Response } from "express";
+import { interviewService } from "../services/interview.service.js";
+import {
+    AddParticipantSchema,
+    CreateInterviewSchema,
+    InterviewIdSchema,
+    ListInterviewSchema,
+    RemoveParticipantSchema,
+    StatusSchema,
+    UpdateInterviewSchema,
+} from "../validators/interview.schema.js";
+import { parseRequest, getAuthUser } from "../utils/validate.js";
 
 export const interviewController = {
-  async create(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = createSchema.parse(req.body);
-      const interview = await interviewService.create(data, req.user!.userId);
-      res.status(201).json(interview);
-    } catch (e) {
-      next(e);
-    }
-  },
+    async createInterview(req: Request, res: Response, next: NextFunction) {
+        try {
+            const input = parseRequest(CreateInterviewSchema, req.body);
+            const interview = await interviewService.createInterview(input, getAuthUser(req));
 
-  async list(req: Request, res: Response, next: NextFunction) {
-    try {
-      const interviews = await interviewService.list(req.user!.userId, req.user!.role);
-      res.json(interviews);
-    } catch (e) {
-      next(e);
-    }
-  },
+            res.status(201).json({
+                success: true,
+                message: "Interview created successfully",
+                data: { interview },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
 
-  async get(req: Request, res: Response, next: NextFunction) {
-    try {
-      const interview = await interviewService.get(req.params.id, req.user!.userId, req.user!.role);
-      res.json(interview);
-    } catch (e) {
-      next(e);
-    }
-  },
+    async updateInterview(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = parseRequest(InterviewIdSchema, req.params);
+            const input = parseRequest(UpdateInterviewSchema, req.body);
+            const interview = await interviewService.updateInterview(id, input, getAuthUser(req));
 
-  async getByRoom(req: Request, res: Response, next: NextFunction) {
-    try {
-      const interview = await interviewService.getByRoom(req.params.roomId, req.user!.userId);
-      res.json(interview);
-    } catch (e) {
-      next(e);
-    }
-  },
+            res.status(200).json({
+                success: true,
+                message: "Interview updated successfully",
+                data: { interview },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
 
-  async update(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = updateSchema.parse(req.body);
-      const interview = await interviewService.update(
-        req.params.id,
-        data,
-        req.user!.userId,
-        req.user!.role
-      );
-      res.json(interview);
-    } catch (e) {
-      next(e);
-    }
-  },
+    async deleteInterview(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = parseRequest(InterviewIdSchema, req.params);
+            await interviewService.deleteInterview(id, getAuthUser(req));
 
-  async cancel(req: Request, res: Response, next: NextFunction) {
-    try {
-      const interview = await interviewService.cancel(req.params.id, req.user!.userId, req.user!.role);
-      res.json(interview);
-    } catch (e) {
-      next(e);
-    }
-  },
+            res.status(200).json({
+                success: true,
+                message: "Interview deleted successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async getInterview(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = parseRequest(InterviewIdSchema, req.params);
+            const interview = await interviewService.getInterview(id);
+
+            res.status(200).json({
+                success: true,
+                data: { interview },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async listInterviews(req: Request, res: Response, next: NextFunction) {
+        try {
+            const input = parseRequest(ListInterviewSchema, req.query);
+            const result = await interviewService.listInterviews(input);
+
+            res.status(200).json({
+                success: true,
+                data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async changeInterviewStatus(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = parseRequest(InterviewIdSchema, req.params);
+            const { status } = parseRequest(StatusSchema, req.body);
+            const interview = await interviewService.changeInterviewStatus(
+                id,
+                status,
+                getAuthUser(req)
+            );
+
+            res.status(200).json({
+                success: true,
+                message: "Interview status updated successfully",
+                data: { interview },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async addParticipant(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = parseRequest(InterviewIdSchema, req.params);
+            const input = parseRequest(AddParticipantSchema, req.body);
+            const participant = await interviewService.addParticipant(id, input, getAuthUser(req));
+
+            res.status(201).json({
+                success: true,
+                message: "Participant added successfully",
+                data: { participant },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async removeParticipant(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = parseRequest(InterviewIdSchema, req.params);
+            const input = parseRequest(RemoveParticipantSchema, req.body);
+            await interviewService.removeParticipant(id, input, getAuthUser(req));
+
+            res.status(200).json({
+                success: true,
+                message: "Participant removed successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async listParticipants(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { id } = parseRequest(InterviewIdSchema, req.params);
+            const participants = await interviewService.listParticipants(id);
+
+            res.status(200).json({
+                success: true,
+                data: { participants },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
 };

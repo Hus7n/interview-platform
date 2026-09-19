@@ -1,36 +1,89 @@
-import { Request, Response, NextFunction } from 'express';
-import { z } from 'zod';
-import { feedbackService } from '../services/feedback.service';
+import type { NextFunction, Request, Response } from "express";
+import { feedbackService } from "../services/feedback.service.js";
+import {
+    CreateFeedbackSchema,
+    FeedbackIdParamSchema,
+    InterviewIdParamSchema,
+    ListFeedbackSchema,
+    UpdateFeedbackSchema,
+} from "../validators/feedback.schema.js";
+import { parseRequest, getAuthUser } from "../utils/validate.js";
 
-const submitSchema = z.object({
-  technicalRating: z.number().min(1).max(5),
-  communicationRating: z.number().min(1).max(5),
-  problemSolvingRating: z.number().min(1).max(5),
-  recommendation: z.enum(['hire', 'no_hire']),
-  writtenFeedback: z.string().optional(),
-});
+const FeedbackParamsSchema = InterviewIdParamSchema.extend(FeedbackIdParamSchema.shape);
 
 export const feedbackController = {
-  async submit(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = submitSchema.parse(req.body);
-      const feedback = await feedbackService.submit(req.params.interviewId, req.user!.userId, data);
-      res.status(201).json(feedback);
-    } catch (e) {
-      next(e);
-    }
-  },
+    async createFeedback(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { interviewId } = parseRequest(InterviewIdParamSchema, req.params);
+            const input = parseRequest(CreateFeedbackSchema, req.body);
+            const feedback = await feedbackService.createFeedback(interviewId, input, getAuthUser(req));
 
-  async list(req: Request, res: Response, next: NextFunction) {
-    try {
-      const feedback = await feedbackService.list(
-        req.params.interviewId,
-        req.user!.userId,
-        req.user!.role
-      );
-      res.json(feedback);
-    } catch (e) {
-      next(e);
-    }
-  },
+            res.status(201).json({
+                success: true,
+                message: "Feedback submitted successfully",
+                data: { feedback },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async listFeedback(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { interviewId } = parseRequest(InterviewIdParamSchema, req.params);
+            const filters = parseRequest(ListFeedbackSchema, req.query);
+            const result = await feedbackService.listFeedback(interviewId, filters);
+
+            res.status(200).json({
+                success: true,
+                data: result,
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async getFeedback(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { interviewId, feedbackId } = parseRequest(FeedbackParamsSchema, req.params);
+            const feedback = await feedbackService.getFeedback(feedbackId, interviewId);
+
+            res.status(200).json({
+                success: true,
+                data: { feedback },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async updateFeedback(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { interviewId, feedbackId } = parseRequest(FeedbackParamsSchema, req.params);
+            const input = parseRequest(UpdateFeedbackSchema, req.body);
+            const feedback = await feedbackService.updateFeedback(feedbackId, interviewId, input, getAuthUser(req));
+
+            res.status(200).json({
+                success: true,
+                message: "Feedback updated successfully",
+                data: { feedback },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async deleteFeedback(req: Request, res: Response, next: NextFunction) {
+        try {
+            const { interviewId, feedbackId } = parseRequest(FeedbackParamsSchema, req.params);
+            await feedbackService.deleteFeedback(feedbackId, interviewId, getAuthUser(req));
+
+            res.status(200).json({
+                success: true,
+                message: "Feedback deleted successfully",
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
 };

@@ -1,11 +1,14 @@
-import { Router } from 'express';
-import { notificationController } from '../controllers/notification.controller';
-import { authenticate } from '../middleware/auth';
+import { Router } from "express";
+import { authenticate } from "../middleware/auth.middleware.js";
+import { notificationsController } from "../controllers/notifications.controller.js";
 
-const router = Router();
+export const notificationsRouter = Router();
 
-router.use(authenticate);
-router.get('/', notificationController.list);
-router.patch('/:id/read', notificationController.markRead);
+notificationsRouter.use(authenticate);
 
-export default router;
+notificationsRouter.get("/", notificationsController.listNotifications);
+notificationsRouter.get("/unread-count", notificationsController.getUnreadCount);
+notificationsRouter.patch("/read-all", notificationsController.markAllAsRead);
+notificationsRouter.patch("/:notificationId/read", notificationsController.markAsRead);
+notificationsRouter.delete("/delete-all", notificationsController.deleteAll);
+notificationsRouter.delete("/:notificationId", notificationsController.deleteNotification);

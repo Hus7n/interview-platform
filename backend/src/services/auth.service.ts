@@ -1,46 +1,207 @@
-import { userRepository } from '../repositories/user.repository';
-import { hashPassword, comparePassword } from '../utils/password';
-import { signToken } from '../utils/token';
-import { AppError } from '../utils/errors';
+import { authRepository } from "../repositories/auth.repository.js";
+import type { UserRecord , UserRole } from "../types/user.js";
+import { comparePassword , hashPassword } from "../utils/password.js";
+import {
+    expiresInDays,
+    expireInHours,
+    expiresInMinutes,
+    generateAccessToken,
+    generateRefreshToken,
+    generateToken,
+    hashToken,
+    verifyRefreshToken
+} from "../utils/token.js";
+import { isAccountDisabled , sanitizeUser } from "../utils/user.js";
+import {
+    accountDisabled,
+    badRequest,
+    conflict,
+    emailNotVerified,
+    notFound,
+    unauthorized
+} from "../utils/error.js";
+import { mailService } from "../mail/mail.service.js";
+
+type RegisterInput = {
+    email : string;
+    password : string;
+    displayName : string;
+    role ?: UserRole | undefined;
+};
+
+type LoginInput = {
+    email : string;
+    password : string;
+};
+
+type ResetPasswordInput = {
+    token : string;
+    password : string;
+};
+
+function normalizeEmail(email : string){
+    return email.trim().toLowerCase();
+}
+
+function createAuthResponse(user : UserRecord , refreshToken : string){
+    const jwtPayload = {
+        userId : user.id,
+        role: user.role,
+    };
+    return{
+        user: sanitizeUser(user),
+        accessToken : generateAccessToken(jwtPayload),
+        refreshToken,
+    };
+}
 
 export const authService = {
-  async register(email: string, password: string, displayName: string, role = 'candidate') {
-    const existing = await userRepository.findByEmail(email);
-    if (existing) throw new AppError(409, 'Email already registered');
+    async register({email , password , displayName , role = 'candidate'}:RegisterInput){
+        const normalizedEmail = normalizeEmail(email);
+        const existingUSer = await authRepository.findByEmail(normalizedEmail);
+        if(existingUSer){
+            throw conflict("Email is already registered");
+        }
 
-    const passwordHash = await hashPassword(password);
-    const user = await userRepository.create(email, passwordHash, role, displayName);
-    const token = signToken({ userId: user.id, email: user.email, role: user.role });
-    return { user: { id: user.id, email: user.email, role: user.role, displayName }, token };
-  },
+        const passwordHash = await hashPassword(password);
+        const user = await authRepository.create({
+            email : normalizedEmail,
+            passwordHash,
+            displayName,
+            role,
+        });
 
-  async login(email: string, password: string) {
-    const user = await userRepository.findByEmail(email);
-    if (!user) throw new AppError(401, 'Invalid credentials');
+        const verificationToken = generateToken();
+        await authRepository.setVerifyToken(user.id , hashToken(verificationToken),expireInHours(24));
+        await mailService.sendVerificationEmail(normalizedEmail, displayName, verificationToken).catch(() => {});
+        return{
+            user:sanitizeUser(user),
+            verificationToken,
+        };
+    },
 
-    const valid = await comparePassword(password, user.password_hash);
-    if (!valid) throw new AppError(401, 'Invalid credentials');
+    async login({email , password}:LoginInput){
+        const user = (await authRepository.findByEmail(normalizeEmail(email))) as UserRecord | null;
+        if(!user){
+            throw unauthorized("Invalid email or password");
+        }
 
-    const token = signToken({ userId: user.id, email: user.email, role: user.role });
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        displayName: user.display_name,
-      },
-      token,
-    };
-  },
+        if(isAccountDisabled(user)){
+            throw accountDisabled();
+        }
 
-  async me(userId: string) {
-    const user = await userRepository.findById(userId);
-    if (!user) throw new AppError(404, 'User not found');
-    return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      displayName: user.display_name,
-    };
-  },
-};
+        const passwordMatches = await comparePassword(password , user.password_hash);
+        if(!passwordMatches){
+            throw unauthorized("Invalid email or password");
+        } 
+
+        if(user.email_verified === false){
+            throw emailNotVerified();
+        }
+
+        const refreshToken = generateRefreshToken({
+            userId : user.id,
+            role : user.role,
+        });
+
+        await authRepository.createSession(user.id , hashToken(refreshToken) , expiresInDays(7));
+        await authRepository.updateLastLogin(user.id);
+        return createAuthResponse(user , refreshToken);
+    },
+
+    async refresh(refreshToken : string){
+        if(!refreshToken){
+            throw unauthorized("Refresh token is required");
+        }
+
+        const payload = verifyRefreshToken(refreshToken);
+        const refreshTokenHash = hashToken(refreshToken);
+        const session = await authRepository.findSession(refreshTokenHash);
+
+        if(!session){
+            throw unauthorized("Invalid or expired refresh token");
+        }
+        const user = (await authRepository.findById(payload.userId)) as UserRecord | null;
+        if(!user){
+            await authRepository.deleteSession(refreshTokenHash);
+            throw unauthorized("Invalid refresh token");
+        }
+
+        if(isAccountDisabled(user)){
+            await authRepository.deleteAllSessions(user.id);
+            throw accountDisabled();
+        }
+
+        const nextRefreshToken = generateRefreshToken({
+            userId : user.id,
+            role : user.role,
+        });
+
+        await authRepository.deleteSession(refreshTokenHash);
+        await authRepository.createSession(user.id , hashToken(nextRefreshToken) , expiresInDays(7));
+        return createAuthResponse(user , nextRefreshToken);
+    },
+
+    async logout(refreshToken : string){
+        if(!refreshToken){
+            return;
+        }
+        await authRepository.deleteSession(hashToken(refreshToken));
+    },
+    async logoutAll(userId : string){
+        await authRepository.deleteAllSessions(userId);
+    },
+
+    async getMe(userId : string){
+        const user = (await authRepository.findById(userId)) as UserRecord | null;
+        if(!user){
+            throw notFound("User not found");
+        }
+        if(isAccountDisabled(user)){
+            throw accountDisabled()
+        }
+        return sanitizeUser(user);
+    },
+
+    async verifyEmail(token : string){
+        if(!token){
+            throw badRequest("Verification token is required" , "INVALID_TOKEN");
+        }
+        const user = (await authRepository.verifyEmailByTokenHash(hashToken(token))) as UserRecord | null;
+        if(!user){
+            throw unauthorized("Invalid or expired verification token" , "INVALID_TOKEN");
+        }
+        return sanitizeUser(user);
+    },
+
+    async forgotPassword(email:string){
+        const user = (await authRepository.findByEmail(normalizeEmail(email))) as UserRecord | null;
+        if(!user || isAccountDisabled(user)){
+            return { resetToken : null};
+        }
+
+        const resetToken = generateToken();
+        await authRepository.setResetToken(user.id , hashToken(resetToken) , expiresInMinutes(30));
+        await mailService.sendResetPasswordEmail(user.email, user.display_name ?? user.email, resetToken).catch(() => {});
+        return {resetToken};
+    },
+
+    async resetPassword ({token , password} : ResetPasswordInput){
+        if(!token){
+            throw badRequest("Reset token is required" , "INVALID_TOKEN");
+        }
+
+        const user = (await authRepository.findByResetTokenHash(hashToken(token))) as UserRecord | null;
+        if(!user){
+            throw unauthorized("Invalid or expired reset token" , "INVALID_TOKEN");
+        }
+
+        if(isAccountDisabled(user)){
+            throw accountDisabled();
+        }
+
+        const passwordHash = await hashPassword(password);
+        await authRepository.resetPassword(user.id , passwordHash);
+    }
+
+}

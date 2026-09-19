@@ -1,16 +1,19 @@
-import { Router } from 'express';
-import { interviewController } from '../controllers/interview.controller';
-import { authenticate, authorize } from '../middleware/auth';
+import { Router } from "express";
+import { authenticate } from "../middleware/auth.middleware.js";
+import { interviewController } from "../controllers/interview.controller.js";
 
-const router = Router();
+export const interviewRouter = Router();
 
-router.use(authenticate);
+interviewRouter.use(authenticate);
 
-router.get('/', interviewController.list);
-router.get('/room/:roomId', interviewController.getByRoom);
-router.get('/:id', interviewController.get);
-router.post('/', authorize('admin', 'interviewer'), interviewController.create);
-router.patch('/:id', authorize('admin', 'interviewer'), interviewController.update);
-router.delete('/:id', authorize('admin', 'interviewer'), interviewController.cancel);
+interviewRouter.post("/", interviewController.createInterview);
+interviewRouter.get("/", interviewController.listInterviews);
 
-export default router;
+interviewRouter.patch("/:id/status", interviewController.changeInterviewStatus);
+interviewRouter.post("/:id/participants", interviewController.addParticipant);
+interviewRouter.get("/:id/participants", interviewController.listParticipants);
+interviewRouter.delete("/:id/participants", interviewController.removeParticipant);
+
+interviewRouter.get("/:id", interviewController.getInterview);
+interviewRouter.patch("/:id", interviewController.updateInterview);
+interviewRouter.delete("/:id", interviewController.deleteInterview);

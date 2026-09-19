@@ -1,129 +1,222 @@
-import { nanoid } from 'nanoid';
-import { interviewRepository } from '../repositories/interview.repository';
-import { notificationRepository } from '../repositories/notification.repository';
-import { AppError } from '../utils/errors';
+import { randomUUID } from "node:crypto";
+import { interviewRepository } from "../repositories/interview.repository.js";
+import type {
+    AddParticipantInput,
+    CreateInterviewInput,
+    InterviewStatus,
+    ListInterviewInput,
+    RemoveParticipantInput,
+    UpdateInterviewInput,
+} from "../validators/interview.schema.js";
+import type { AuthUser } from "../types/user.js";
+import { badRequest, conflict, forbidden, notFound } from "../utils/error.js";
+import { mailService } from "../mail/mail.service.js";
+import { authRepository } from "../repositories/auth.repository.js";
+import type { UserRecord } from "../types/user.js";
+
+type InterviewRecord = {
+    id: string;
+    title: string;
+    description: string | null;
+    scheduled_at: Date | string;
+    duration_minutes: number;
+    status: InterviewStatus;
+    room_id: string;
+    language: string;
+    starter_code: string | null;
+    created_by: string;
+    created_at: Date | string;
+    updated_at: Date | string;
+    participant_count?: number;
+};
+
+const VALID_STATUS_TRANSITIONS: Record<InterviewStatus, InterviewStatus[]> = {
+    scheduled: ["in_progress", "cancelled"],
+    in_progress: ["completed", "cancelled"],
+    completed: [],
+    cancelled: [],
+};
+
+function canManageInterview(user: AuthUser, interview: InterviewRecord) {
+    return user.role === "admin" || interview.created_by === user.userId;
+}
+
+function sanitizeInterview(interview: InterviewRecord) {
+    return {
+        id: interview.id,
+        title: interview.title,
+        description: interview.description,
+        scheduledAt: interview.scheduled_at,
+        durationMinutes: interview.duration_minutes,
+        status: interview.status,
+        roomId: interview.room_id,
+        language: interview.language,
+        starterCode: interview.starter_code,
+        createdBy: interview.created_by,
+        participantCount: interview.participant_count ?? 0,
+        createdAt: interview.created_at,
+        updatedAt: interview.updated_at,
+    };
+}
+
+async function getExistingInterview(id: string) {
+    const interview = await interviewRepository.findById(id) as InterviewRecord | null;
+    if (!interview) throw notFound("Interview not found");
+    return interview;
+}
+
+async function generateRoomId() {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        const roomId = randomUUID();
+        if (!(await interviewRepository.existsByRoom(roomId))) return roomId;
+    }
+    throw conflict("Could not generate a unique interview room");
+}
 
 export const interviewService = {
-  async create(
-    data: {
-      title: string;
-      description?: string;
-      scheduledAt: string;
-      durationMinutes: number;
-      language: string;
-      interviewerId: string;
-      candidateId: string;
+    async createInterview(input: CreateInterviewInput, authUser: AuthUser) {
+        if (input.scheduled_at.getTime() <= Date.now()) {
+            throw badRequest("Interview must be scheduled in the future", "VALIDATION_ERROR");
+        }
+
+        const roomId = await generateRoomId();
+        const interview = await interviewRepository.create({
+            ...input,
+            room_id: roomId,
+            created_by: authUser.userId,
+            status: "scheduled",
+        }) as InterviewRecord;
+
+        await interviewRepository.addParticipant(interview.id, authUser.userId, "interviewer");
+
+        return sanitizeInterview(interview);
     },
-    createdBy: string
-  ) {
-    const roomId = nanoid(10);
-    const interview = await interviewRepository.create({
-      ...data,
-      roomId,
-      createdBy,
-    });
 
-    await notificationRepository.create(
-      data.candidateId,
-      `Interview scheduled: ${data.title} on ${new Date(data.scheduledAt).toLocaleString()}`
-    );
-    await notificationRepository.create(
-      data.interviewerId,
-      `You are assigned to interview: ${data.title}`
-    );
+    async updateInterview(id: string, input: UpdateInterviewInput, authUser: AuthUser) {
+        const interview = await getExistingInterview(id);
 
-    return interview;
-  },
+        if (!canManageInterview(authUser, interview)) {
+            throw forbidden("You do not have permission to manage this interview");
+        }
+        if (interview.status === "completed") {
+            throw badRequest("Completed interviews cannot be modified");
+        }
+        if (input.scheduled_at && input.scheduled_at.getTime() <= Date.now()) {
+            throw badRequest("Interview must be scheduled in the future", "VALIDATION_ERROR");
+        }
 
-  async list(userId: string, role: string) {
-    if (role === 'admin') return interviewRepository.findAll();
-    return interviewRepository.findForUser(userId);
-  },
-
-  async get(id: string, userId: string, role: string) {
-    const interview = await interviewRepository.findById(id);
-    if (!interview) throw new AppError(404, 'Interview not found');
-
-    if (role !== 'admin') {
-      const isParticipant = await interviewRepository.isParticipant(id, userId);
-      if (!isParticipant) throw new AppError(403, 'Forbidden');
-    }
-
-    const participants = await interviewRepository.getParticipants(id);
-    return { ...interview, participants };
-  },
-
-  async getByRoom(roomId: string, userId: string) {
-    const interview = await interviewRepository.findByRoomId(roomId);
-    if (!interview) throw new AppError(404, 'Interview not found');
-
-    const isParticipant = await interviewRepository.isParticipantByRoom(roomId, userId);
-    if (!isParticipant) throw new AppError(403, 'Forbidden');
-
-    const participants = await interviewRepository.getParticipants(interview.id);
-    return { ...interview, participants };
-  },
-
-  async update(
-    id: string,
-    data: {
-      title?: string;
-      scheduledAt?: string;
-      status?: string;
-      description?: string;
-      durationMinutes?: number;
-      language?: string;
+        return sanitizeInterview(await interviewRepository.update(id, input) as InterviewRecord);
     },
-    userId: string,
-    role: string
-  ) {
-    const interview = await interviewRepository.findById(id);
-    if (!interview) throw new AppError(404, 'Interview not found');
 
-    if (interview.status === 'cancelled') {
-      throw new AppError(400, 'Cannot update a cancelled interview');
-    }
+    async deleteInterview(id: string, authUser: AuthUser) {
+        const interview = await getExistingInterview(id);
+        if (!canManageInterview(authUser, interview)) {
+            throw forbidden("You do not have permission to manage this interview");
+        }
+        if (interview.status === "completed") {
+            throw badRequest("Completed interviews cannot be modified");
+        }
+        await interviewRepository.delete(id);
+    },
 
-    if (role !== 'admin' && interview.created_by !== userId) {
-      throw new AppError(403, 'Forbidden');
-    }
+    async getInterview(id: string) {
+        const interview = await getExistingInterview(id);
+        const participantCount = await interviewRepository.countParticipants(id);
+        return sanitizeInterview({ ...interview, participant_count: participantCount } as unknown as InterviewRecord);
+    },
 
-    const updated = await interviewRepository.update(id, {
-      title: data.title,
-      scheduled_at: data.scheduledAt,
-      status: data.status,
-      description: data.description,
-      duration_minutes: data.durationMinutes,
-      language: data.language,
-    });
+    async listInterviews(filters: ListInterviewInput) {
+        if (filters.from_date && filters.to_date && filters.from_date.getTime() > filters.to_date.getTime()) {
+            throw badRequest("from_date cannot be after to_date", "VALIDATION_ERROR");
+        }
 
-    const participants = await interviewRepository.getParticipants(id);
-    for (const p of participants) {
-      await notificationRepository.create(p.user_id, `Interview updated: ${interview.title}`);
-    }
+        const offset = (filters.page - 1) * filters.limit;
+        const [interviews, total] = await Promise.all([
+            interviewRepository.findMany({ ...filters, offset }),
+            interviewRepository.count(filters),
+        ]);
 
-    return updated;
-  },
+        return {
+            interviews: interviews.map((i) => sanitizeInterview(i as InterviewRecord)),
+            pagination: {
+                page: filters.page,
+                limit: filters.limit,
+                total,
+                totalPages: Math.ceil(total / filters.limit),
+            },
+        };
+    },
 
-  async cancel(id: string, userId: string, role: string) {
-    const interview = await interviewRepository.findById(id);
-    if (!interview) throw new AppError(404, 'Interview not found');
+    async changeInterviewStatus(id: string, status: InterviewStatus, authUser: AuthUser) {
+        const interview = await getExistingInterview(id);
+        if (!canManageInterview(authUser, interview)) {
+            throw forbidden("You do not have permission to manage this interview");
+        }
 
-    if (interview.status === 'cancelled') {
-      throw new AppError(400, 'Interview is already cancelled');
-    }
+        const allowedStatuses = VALID_STATUS_TRANSITIONS[interview.status];
+        if (!allowedStatuses.includes(status)) {
+            throw badRequest(`Cannot change interview status from ${interview.status} to ${status}`, "VALIDATION_ERROR");
+        }
 
-    if (role !== 'admin' && interview.created_by !== userId) {
-      throw new AppError(403, 'Forbidden');
-    }
+        const updatedInterview = await interviewRepository.updateStatus(id, status) as InterviewRecord;
 
-    const updated = await interviewRepository.update(id, { status: 'cancelled' });
+        if (status === "cancelled") {
+            const participants = await interviewRepository.findParticipants(id);
+            for (const p of participants) {
+                const user = await authRepository.findById(p.user_id) as UserRecord | null;
+                if (user) {
+                    mailService.sendInterviewCancellation(
+                        user.email,
+                        user.display_name ?? user.email,
+                        interview.title,
+                    ).catch(() => {});
+                }
+            }
+        }
 
-    const participants = await interviewRepository.getParticipants(id);
-    for (const p of participants) {
-      await notificationRepository.create(p.user_id, `Interview cancelled: ${interview.title}`);
-    }
+        return sanitizeInterview(updatedInterview);
+    },
 
-    return updated;
-  },
+    async addParticipant(id: string, input: AddParticipantInput, authUser: AuthUser) {
+        const interview = await getExistingInterview(id);
+        if (!canManageInterview(authUser, interview)) {
+            throw forbidden("You do not have permission to manage this interview");
+        }
+
+        const participants = await interviewRepository.findParticipants(id);
+        if (participants.some((p) => p.user_id === input.user_id)) {
+            throw conflict("User is already a participant in this interview");
+        }
+
+        const result = await interviewRepository.addParticipant(id, input.user_id, input.role);
+
+        const user = await authRepository.findById(input.user_id) as UserRecord | null;
+        if (user) {
+            const scheduledAt = new Date(interview.scheduled_at);
+            mailService.sendInterviewInvitation(
+                user.email,
+                user.display_name ?? user.email,
+                interview.title,
+                scheduledAt,
+                interview.duration_minutes,
+            ).catch(() => {});
+        }
+
+        return result;
+    },
+
+    async removeParticipant(id: string, input: RemoveParticipantInput, authUser: AuthUser) {
+        const interview = await getExistingInterview(id);
+        if (!canManageInterview(authUser, interview)) {
+            throw forbidden("You do not have permission to manage this interview");
+        }
+
+        const removed = await interviewRepository.removeParticipant(id, input.user_id);
+        if (!removed) throw notFound("Participant not found");
+    },
+
+    async listParticipants(id: string) {
+        await getExistingInterview(id);
+        return interviewRepository.findParticipants(id);
+    },
 };
