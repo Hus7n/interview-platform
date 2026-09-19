@@ -2,6 +2,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { env } from "./config/env.js";
 import cors from "cors";
 import helmet from "helmet";
+// @ts-expect-error morgan does not provide TypeScript declarations.
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import { authRouter } from "./routes/auth.routes.js";

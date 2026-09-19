@@ -1,10 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { pool } from "./db.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const migrationDir = join(__dirname, "..", "migration");
+const migrationDir = join(process.cwd(), "migration");
 
 async function runMigrations() {
     const client = await pool.connect();

@@ -1,7 +1,18 @@
 import type { Server } from "socket.io";
 import { interviewRepository } from "../repositories/interview.repository.js";
-import { notFound, forbidden } from "../utils/error.js";
-import type { RoomParticipant, RoomJoinedPayload, RoomLeftPayload, TypingUpdatePayload, CodeUpdatePayload } from "./socket.types.js";
+import type { RoomParticipant, RoomJoinedPayload, RoomLeftPayload, TypingUpdatePayload, CodeUpdatePayload } from "./socket.types";
+
+function notFound(message: string): Error {
+    const error = new Error(message);
+    Object.assign(error, { statusCode: 404 });
+    return error;
+}
+
+function forbidden(message: string): Error {
+    const error = new Error(message);
+    Object.assign(error, { statusCode: 403 });
+    return error;
+}
 
 type AuthUser = {
     userId: string;

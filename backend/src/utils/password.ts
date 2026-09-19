@@ -1,6 +1,11 @@
+// bcrypt does not ship TypeScript declarations in this project.
+// @ts-ignore -- the package is available at runtime.
 import bcrypt from "bcrypt";
 import { env } from "../config/env.js";
-import {badRequest} from "./error.js";
+
+// Keep password validation independent from the optional HTTP error helper.
+const badRequest = (message: string, code: string): Error & { statusCode: number; code: string } =>
+    Object.assign(new Error(message), { statusCode: 400, code });
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;

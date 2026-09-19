@@ -1,5 +1,5 @@
 import type { Socket } from "socket.io";
-import type { UserRole } from "../types/user.js";
+import type { UserRole } from "../types/user";
 
 export type SocketData = {
     userId: string;

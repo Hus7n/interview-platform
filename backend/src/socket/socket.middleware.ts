@@ -1,10 +1,23 @@
 import type { NextFunction, Request, Response } from "express";
 import type { Server, Socket } from "socket.io";
 import { authRepository } from "../repositories/auth.repository.js";
-import type { UserRecord, UserRole } from "../types/user.js";
-import { unauthorized, accountDisabled } from "../utils/error.js";
 import { verifyAccessToken } from "../utils/token.js";
-import { isAccountDisabled } from "../utils/user.js";
+
+const unauthorized = (message: string) => new Error(message);
+const accountDisabled = () => new Error("Account is disabled");
+
+type AuthenticatedUser = NonNullable<Awaited<ReturnType<typeof authRepository.findById>>>;
+type UserRole = AuthenticatedUser["role"];
+
+const isAccountDisabled = (user: AuthenticatedUser) => {
+    const account = user as AuthenticatedUser & {
+        disabled?: boolean;
+        disabledAt?: Date | null;
+        status?: string;
+    };
+
+    return account.disabled === true || Boolean(account.disabledAt) || account.status === "DISABLED";
+};
 
 export type AuthenticatedSocket = Socket & {
     data: {
@@ -24,7 +37,7 @@ export function socketAuthMiddleware(io: Server) {
             }
 
             const payload = verifyAccessToken(token);
-            const user = (await authRepository.findById(payload.userId)) as UserRecord | null;
+            const user = (await authRepository.findById(payload.userId)) as AuthenticatedUser | null;
 
             if (!user) {
                 return next(new Error(unauthorized("Invalid access token").message));

@@ -1,6 +1,6 @@
 import type { Server } from "socket.io";
-import type { AuthenticatedSocket } from "./socket.middleware.js";
-import { socketService } from "./socket.service.js";
+import type { AuthenticatedSocket } from "./socket.middleware";
+import { socketService } from "./socket.service";
 
 export function registerSocketHandlers(io: Server) {
     io.on("connection", (socket: AuthenticatedSocket) => {
