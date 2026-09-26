@@ -1,6 +1,4 @@
-// bcrypt does not ship TypeScript declarations in this project.
-// @ts-ignore -- the package is available at runtime.
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { env } from "../config/env.js";
 
 // Keep password validation independent from the optional HTTP error helper.

@@ -76,7 +76,6 @@ export const authService = {
         await mailService.sendVerificationEmail(normalizedEmail, displayName, verificationToken).catch(() => {});
         return{
             user:sanitizeUser(user),
-            verificationToken,
         };
     },
 
@@ -177,13 +176,12 @@ export const authService = {
     async forgotPassword(email:string){
         const user = (await authRepository.findByEmail(normalizeEmail(email))) as UserRecord | null;
         if(!user || isAccountDisabled(user)){
-            return { resetToken : null};
+            return;
         }
 
         const resetToken = generateToken();
         await authRepository.setResetToken(user.id , hashToken(resetToken) , expiresInMinutes(30));
         await mailService.sendResetPasswordEmail(user.email, user.display_name ?? user.email, resetToken).catch(() => {});
-        return {resetToken};
     },
 
     async resetPassword ({token , password} : ResetPasswordInput){
