@@ -143,8 +143,8 @@ export const interviewService = {
 
         const offset = (filters.page - 1) * filters.limit;
         const [interviews, total] = await Promise.all([
-            interviewRepository.findMany({ ...filters, offset }),
-            interviewRepository.count(filters),
+            interviewRepository.findMany({ ...scopedFilters, offset }),
+            interviewRepository.count(scopedFilters),
         ]);
 
         return {
