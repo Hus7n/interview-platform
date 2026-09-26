@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate } from "../middleware/auth.middleware.js";
-import { notesController } from "../controllers/notes.controller.js";
+import { notesController } from "../controllers/note.controller.js";
 
 export const notesRouter = Router({ mergeParams: true });
 

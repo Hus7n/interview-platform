@@ -2,7 +2,7 @@ import { feedbackRepository } from "../repositories/feedback.repository.js";
 import { interviewRepository } from "../repositories/interview.repository.js";
 import type { CreateFeedbackInput, ListFeedbackInput, UpdateFeedbackInput } from "../validators/feedback.schema.js";
 import type { AuthUser } from "../types/user.js";
-import { badRequest, conflict, forbidden, notFound } from "../utils/error.js";
+import { badRequest, conflict, forbidden, notFound } from "../utils/errors.js";
 
 async function assertIsInterviewer(interviewId: string, userId: string) {
     const participants = await interviewRepository.findParticipants(interviewId);

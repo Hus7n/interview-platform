@@ -1,6 +1,6 @@
 import { adminRepository } from "../repositories/admin.repository.js";
 import type { AdminListUsersInput, AdminUpdateUserInput } from "../validators/admin.schema.js";
-import { notFound } from "../utils/error.js";
+import { notFound } from "../utils/errors.js";
 
 export const adminService = {
     async listUsers(filters: AdminListUsersInput) {

@@ -1,7 +1,7 @@
-import { notificationsRepository } from "../repositories/notifications.repository.js";
+import { notificationsRepository } from "../repositories/notification.repository.js";
 import type { ListNotificationsInput } from "../validators/notification.schema.js";
 import type { AuthUser } from "../types/user.js";
-import { notFound } from "../utils/error.js";
+import { notFound } from "../utils/errors.js";
 
 function sanitizeNotification(record: { id: string; user_id: string; type: string; message: string; is_read: boolean; created_at: Date | string }) {
     return {

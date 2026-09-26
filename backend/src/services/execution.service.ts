@@ -1,6 +1,6 @@
 import { env } from "../config/env.js";
 import { getPistonLanguage, type ExecuteCodeInput, type RunTestCasesInput } from "../validators/execution.schema.js";
-import { badRequest } from "../utils/error.js";
+import { badRequest } from "../utils/errors.js";
 
 const PISTON_URL = env.pistonUrl;
 const TIMEOUT_MS = 10_000;

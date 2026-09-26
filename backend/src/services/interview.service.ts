@@ -9,7 +9,7 @@ import type {
     UpdateInterviewInput,
 } from "../validators/interview.schema.js";
 import type { AuthUser } from "../types/user.js";
-import { badRequest, conflict, forbidden, notFound } from "../utils/error.js";
+import { badRequest, conflict, forbidden, notFound } from "../utils/errors.js";
 import { mailService } from "../mail/mail.service.js";
 import { authRepository } from "../repositories/auth.repository.js";
 import type { UserRecord } from "../types/user.js";

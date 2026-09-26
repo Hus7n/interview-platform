@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import sharp from "sharp";
 import { storage } from "./storage.js";
 import { authRepository } from "../repositories/auth.repository.js";
-import { badRequest, notFound } from "../utils/error.js";
+import { badRequest, notFound } from "../utils/errors.js";
 import { getAuthUser } from "../utils/validate.js";
 
 const AVATAR_MAX_WIDTH = 400;

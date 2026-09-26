@@ -8,7 +8,13 @@ import {
     resetPasswordSchema,
     verifyEmailSchema
 } from "../validators/auth.schema.js";
-import { badRequest } from "../utils/error.js";
+
+function badRequest(message: string, code?: string) {
+    const error = new Error(message) as Error & { statusCode?: number; code?: string };
+    error.statusCode = 400;
+    error.code = code;
+    return error;
+}
 
 type RequestWithCookies = Request & {
     cookies?: Record<string, unknown>;

@@ -19,7 +19,7 @@ import {
     emailNotVerified,
     notFound,
     unauthorized
-} from "../utils/error.js";
+} from "../utils/errors.js";
 import { mailService } from "../mail/mail.service.js";
 
 type RegisterInput = {

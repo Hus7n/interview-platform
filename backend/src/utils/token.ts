@@ -1,7 +1,7 @@
 import { createHash , randomBytes , timingSafeEqual } from "node:crypto";
 import jwt from "jsonwebtoken";
 import {env} from "../config/env.js";
-import {badRequest , unauthorized} from "./error.js";
+import {badRequest , unauthorized} from "./errors.js";
 
 export type JwtUserRole = "admin" | "interviewer" | "candidate";
 

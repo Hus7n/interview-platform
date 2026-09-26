@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../middleware/auth.middleware.js";
-import { analyticsController } from "../controllers/analytics.controller.js";
+import { analyticsController } from "../controllers/analytics.controllers.js";
 
 export const analyticsRouter = Router();
 

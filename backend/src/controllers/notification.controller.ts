@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
-import { notificationsService } from "../services/notifications.service.js";
+import { notificationsService } from "../services/notification.service.js";
 import { ListNotificationsSchema } from "../validators/notification.schema.js";
 import { parseRequest, getAuthUser } from "../utils/validate.js";
-import { validationError } from "../utils/error.js";
+import { validationError } from "../utils/errors.js";
 
 export const notificationsController = {
     async listNotifications(req: Request, res: Response, next: NextFunction) {

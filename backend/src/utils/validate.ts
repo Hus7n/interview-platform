@@ -1,6 +1,6 @@
 import type { Request } from "express";
 import type { z } from "zod";
-import { validationError, badRequest } from "./error.js";
+import { validationError, badRequest } from "./errors.js";
 
 export function parseRequest<TSchema extends z.ZodTypeAny>(
     schema: TSchema,

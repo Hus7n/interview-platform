@@ -1,8 +1,8 @@
-import { notesRepository } from "../repositories/notes.repository.js";
+import { notesRepository } from "../repositories/note.repository.js";
 import { interviewRepository } from "../repositories/interview.repository.js";
 import type { CreateNoteInput, ListNotesInput, UpdateNoteInput } from "../validators/notes.schema.js";
 import type { AuthUser } from "../types/user.js";
-import { forbidden, notFound } from "../utils/error.js";
+import { forbidden, notFound } from "../utils/errors.js";
 
 async function assertIsParticipant(interviewId: string, userId: string) {
     const participants = await interviewRepository.findParticipants(interviewId);

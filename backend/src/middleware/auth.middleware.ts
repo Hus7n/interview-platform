@@ -1,7 +1,7 @@
 import type { NextFunction , Request , Response } from "express";
 import { authRepository } from "../repositories/auth.repository.js";
 import type {UserRecord , UserRole} from "../types/user.js";
-import { accountDisabled , forbidden , unauthorized } from "../utils/error.js";
+import { accountDisabled , forbidden , unauthorized } from "../utils/errors.js";
 import { verifyAccessToken } from "../utils/token.js";
 import { isAccountDisabled } from "../utils/user.js";
 

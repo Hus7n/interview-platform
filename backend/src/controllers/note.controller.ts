@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
-import { notesService } from "../services/notes.service.js";
+import { notesService } from "../services/note.service.js";
 import {
     CreateNoteSchema,
     InterviewIdParamSchema,

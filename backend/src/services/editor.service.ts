@@ -2,7 +2,7 @@ import { interviewRepository } from "../repositories/interview.repository.js";
 import { editorRepository } from "../repositories/editor.repository.js";
 import type { SaveCodeInput } from "../validators/editor.schema.js";
 import type { AuthUser } from "../types/user.js";
-import { forbidden, notFound } from "../utils/error.js";
+import { forbidden, notFound } from "../utils/errors.js";
 
 type EditorCodeRecord = {
     id: string;
