@@ -68,8 +68,17 @@ export const feedbackService = {
         return sanitizeFeedback(feedback);
     },
 
-    async listFeedback(interviewId: string, filters: ListFeedbackInput) {
+        async listFeedback(interviewId: string, filters: ListFeedbackInput, authUser: AuthUser) {
         if (!(await interviewRepository.exists(interviewId))) throw notFound("Interview not found");
+        if (authUser.role === "candidate") {
+            throw forbidden("Candidates cannot view interview feedback");
+        }
+        if (authUser.role !== "admin") {
+            const participants = await interviewRepository.findParticipants(interviewId);
+            if (!participants.some((p) => p.user_id === authUser.userId)) {
+                throw forbidden("You are not a participant of this interview");
+            }
+        }
 
         const [feedbacks, total] = await Promise.all([
             feedbackRepository.findByInterviewId(interviewId, filters.page, filters.limit),
@@ -82,8 +91,17 @@ export const feedbackService = {
         };
     },
 
-    async getFeedback(feedbackId: string, interviewId: string) {
+        async getFeedback(feedbackId: string, interviewId: string, authUser: AuthUser) {
         if (!(await interviewRepository.exists(interviewId))) throw notFound("Interview not found");
+        if (authUser.role === "candidate") {
+            throw forbidden("Candidates cannot view interview feedback");
+        }
+        if (authUser.role !== "admin") {
+            const participants = await interviewRepository.findParticipants(interviewId);
+            if(!participants.some((p) => p.user_id === authUser.userId)){
+                throw forbidden("You are not a participant of this interview");
+            }
+        }
         return sanitizeFeedback(await getExistingFeedback(feedbackId, interviewId));
     },
 

@@ -40,6 +40,13 @@ const VALID_STATUS_TRANSITIONS: Record<InterviewStatus, InterviewStatus[]> = {
 function canManageInterview(user: AuthUser, interview: InterviewRecord) {
     return user.role === "admin" || interview.created_by === user.userId;
 }
+async function assertCanView(interview: InterviewRecord, authUser: AuthUser) {
+    if (authUser.role === "admin" || interview.created_by === authUser.userId) return;
+    const participants = await interviewRepository.findParticipants(interview.id);
+    if (!participants.some((p) => p.user_id === authUser.userId)) {
+        throw forbidden("You are not a participant of this interview");
+    }
+}
 
 function sanitizeInterview(interview: InterviewRecord) {
     return {
@@ -119,16 +126,20 @@ export const interviewService = {
         await interviewRepository.delete(id);
     },
 
-    async getInterview(id: string) {
+    async getInterview(id: string , authUser : AuthUser) {
         const interview = await getExistingInterview(id);
+        await assertCanView(interview , authUser);
         const participantCount = await interviewRepository.countParticipants(id);
         return sanitizeInterview({ ...interview, participant_count: participantCount } as unknown as InterviewRecord);
     },
 
-    async listInterviews(filters: ListInterviewInput) {
+    async listInterviews(filters: ListInterviewInput , authUser : AuthUser) {
         if (filters.from_date && filters.to_date && filters.from_date.getTime() > filters.to_date.getTime()) {
             throw badRequest("from_date cannot be after to_date", "VALIDATION_ERROR");
         }
+
+        const scopedFilters = authUser.role === "admin"
+        ? filters : {...filters , participant_id : authUser.userId};
 
         const offset = (filters.page - 1) * filters.limit;
         const [interviews, total] = await Promise.all([
@@ -215,8 +226,9 @@ export const interviewService = {
         if (!removed) throw notFound("Participant not found");
     },
 
-    async listParticipants(id: string) {
-        await getExistingInterview(id);
+    async listParticipants(id: string , authUser : AuthUser) {
+        const interview = await getExistingInterview(id);
+        await assertCanView(interview , authUser);
         return interviewRepository.findParticipants(id);
     },
 };

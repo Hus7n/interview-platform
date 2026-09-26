@@ -32,7 +32,7 @@ export const feedbackController = {
         try {
             const { interviewId } = parseRequest(InterviewIdParamSchema, req.params);
             const filters = parseRequest(ListFeedbackSchema, req.query);
-            const result = await feedbackService.listFeedback(interviewId, filters);
+            const result = await feedbackService.listFeedback(interviewId, filters , getAuthUser(req));
 
             res.status(200).json({
                 success: true,
@@ -46,7 +46,7 @@ export const feedbackController = {
     async getFeedback(req: Request, res: Response, next: NextFunction) {
         try {
             const { interviewId, feedbackId } = parseRequest(FeedbackParamsSchema, req.params);
-            const feedback = await feedbackService.getFeedback(feedbackId, interviewId);
+            const feedback = await feedbackService.getFeedback(feedbackId, interviewId , getAuthUser(req));
 
             res.status(200).json({
                 success: true,

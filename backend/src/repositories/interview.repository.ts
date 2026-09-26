@@ -15,9 +15,10 @@ type CreateInterviewData = CreateInterviewInput & {
 
 type InterviewFilters = ListInterviewInput & {
     offset: number;
+    participant_id? : string;
 };
 
-function buildWhereClause(filters: ListInterviewInput) {
+function buildWhereClause(filters: ListInterviewInput & {participant_id ?: string}) {
     const values: unknown[] = [];
     const conditions: string[] = [];
 
@@ -39,6 +40,13 @@ function buildWhereClause(filters: ListInterviewInput) {
     if (filters.room_id) {
         values.push(filters.room_id);
         conditions.push(`i.room_id = $${values.length}`);
+    }
+
+    if(filters.participant_id){
+        values.push(filters.participant_id);
+        conditions.push(
+            `EXISTS (SELECT 1 FROM interview_participants ip2 WHERE ip2.interview_id = i.id AND ip2.user_id = $${values.length})`
+        );
     }
 
     if (filters.from_date) {
@@ -186,7 +194,7 @@ export const interviewRepository = {
         return rows[0]?.exists === true;
     },
 
-    async count(filters: ListInterviewInput) {
+    async count(filters: ListInterviewInput & {participant_id ?: string}) {
         const { whereSql, values } = buildWhereClause(filters);
 
         const { rows } = await query(

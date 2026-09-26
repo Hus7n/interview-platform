@@ -60,7 +60,7 @@ export const interviewController = {
     async getInterview(req: Request, res: Response, next: NextFunction) {
         try {
             const { id } = parseRequest(InterviewIdSchema, req.params);
-            const interview = await interviewService.getInterview(id);
+            const interview = await interviewService.getInterview(id , getAuthUser(req));
 
             res.status(200).json({
                 success: true,
@@ -74,7 +74,7 @@ export const interviewController = {
     async listInterviews(req: Request, res: Response, next: NextFunction) {
         try {
             const input = parseRequest(ListInterviewSchema, req.query);
-            const result = await interviewService.listInterviews(input);
+            const result = await interviewService.listInterviews(input , getAuthUser(req));
 
             res.status(200).json({
                 success: true,
@@ -139,7 +139,7 @@ export const interviewController = {
     async listParticipants(req: Request, res: Response, next: NextFunction) {
         try {
             const { id } = parseRequest(InterviewIdSchema, req.params);
-            const participants = await interviewService.listParticipants(id);
+            const participants = await interviewService.listParticipants(id , getAuthUser(req));
 
             res.status(200).json({
                 success: true,

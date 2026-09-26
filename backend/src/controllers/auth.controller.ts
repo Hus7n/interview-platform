@@ -144,12 +144,11 @@ export const authController = {
     async forgotPassword(req: Request, res: Response, next: NextFunction) {
         try {
             const input = parseRequest(forgotPasswordSchema, req.body);
-            const result = await authService.forgotPassword(input.email);
+            await authService.forgotPassword(input.email);
 
             res.status(200).json({
                 success: true,
                 message: "If that email exists, a reset link has been created",
-                data: result,
             });
         } catch (error) {
             next(error);
