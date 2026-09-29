@@ -14,6 +14,8 @@ export type AuthenticatedSocket = Socket & {
 export type RoomParticipant = {
     userId: string;
     role: "interviewer" | "candidate";
+    displayName?: string | null;
+    email?: string;
 };
 
 export type RoomJoinedPayload = {

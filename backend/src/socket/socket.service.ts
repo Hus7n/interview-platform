@@ -47,9 +47,11 @@ export const socketService = {
 
         return {
             interviewId,
-            participants: participants.map((participant) => ({
+                participants: participants.map((participant) => ({
                 userId: participant.user_id,
                 role: participant.role,
+                displayName: participant.display_name ?? null,
+                email: participant.email,
             })) as RoomParticipant[],
             onlineCount: getOnlineCount(interviewId, io),
         };

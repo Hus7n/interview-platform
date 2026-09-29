@@ -6,6 +6,8 @@ export function registerSocketHandlers(io: Server) {
     io.on("connection", (socket: AuthenticatedSocket) => {
         const userId = socket.data.userId;
         const userRooms = new Set<string>();
+        const inRoom = (interviewId: unknown): interviewId is string =>
+            typeof interviewId === "string" && userRooms.has(interviewId);
 
         socket.on("join-room", async (interviewId: string) => {
             try {
@@ -67,8 +69,9 @@ export function registerSocketHandlers(io: Server) {
                     socket.emit("error", { message: "Interview ID is required" });
                     return;
                 }
+                if (!inRoom(interviewId)) return;
 
-                const result = await socketService.broadcastTyping(
+                    const result = await socketService.broadcastTyping(
                     interviewId,
                     userId,
                     true
@@ -87,6 +90,8 @@ export function registerSocketHandlers(io: Server) {
                     return;
                 }
 
+                if (!inRoom(interviewId)) return;
+
                 const result = await socketService.broadcastTyping(
                     interviewId,
                     userId,
@@ -101,10 +106,11 @@ export function registerSocketHandlers(io: Server) {
 
         socket.on("save-code", async (payload: { interviewId: string; code: string; language: string }) => {
             try {
-                if (!payload?.interviewId) {
+                    if (!payload?.interviewId) {
                     socket.emit("error", { message: "Interview ID is required" });
                     return;
                 }
+                if (!inRoom(payload.interviewId)) return;
 
                 const update = socketService.broadcastCodeUpdate(
                     payload.interviewId,
@@ -122,7 +128,7 @@ export function registerSocketHandlers(io: Server) {
         // --- WebRTC signaling ---
 
         socket.on("webrtc-offer", (payload: { interviewId: string; to: string; signal: unknown }) => {
-            if (!payload?.interviewId || !payload.to) return;
+            if (!payload?.interviewId || !payload.to || !inRoom(payload.interviewId)) return;
             io.to(`interview:${payload.interviewId}`).emit("webrtc-offer", {
                 from: userId,
                 signal: payload.signal,
@@ -130,7 +136,7 @@ export function registerSocketHandlers(io: Server) {
         });
 
         socket.on("webrtc-answer", (payload: { interviewId: string; to: string; signal: unknown }) => {
-            if (!payload?.interviewId || !payload.to) return;
+            if (!payload?.interviewId || !payload.to || !inRoom(payload.interviewId)) return;
             io.to(`interview:${payload.interviewId}`).emit("webrtc-answer", {
                 from: userId,
                 signal: payload.signal,
@@ -138,7 +144,7 @@ export function registerSocketHandlers(io: Server) {
         });
 
         socket.on("webrtc-ice-candidate", (payload: { interviewId: string; to: string; candidate: unknown }) => {
-            if (!payload?.interviewId || !payload.to) return;
+            if (!payload?.interviewId || !payload.to || !inRoom(payload.interviewId)) return;
             io.to(`interview:${payload.interviewId}`).emit("webrtc-ice-candidate", {
                 from: userId,
                 candidate: payload.candidate,
@@ -146,7 +152,7 @@ export function registerSocketHandlers(io: Server) {
         });
 
         socket.on("media-toggle", (payload: { interviewId: string; mediaType: "camera" | "microphone"; enabled: boolean }) => {
-            if (!payload?.interviewId) return;
+            if (!payload?.interviewId || !inRoom(payload.interviewId)) return;
             socket.to(`interview:${payload.interviewId}`).emit("media-toggle", {
                 userId,
                 mediaType: payload.mediaType,
@@ -157,7 +163,7 @@ export function registerSocketHandlers(io: Server) {
         // --- Whiteboard ---
 
         socket.on("draw-start", (payload: { interviewId: string; point: { x: number; y: number }; tool: string; color: string; strokeWidth: number }) => {
-            if (!payload?.interviewId) return;
+            if (!payload?.interviewId || !inRoom(payload.interviewId)) return;
             socket.to(`interview:${payload.interviewId}`).emit("draw-start", {
                 userId,
                 point: payload.point,
@@ -168,7 +174,7 @@ export function registerSocketHandlers(io: Server) {
         });
 
         socket.on("draw-move", (payload: { interviewId: string; point: { x: number; y: number } }) => {
-            if (!payload?.interviewId) return;
+            if (!payload?.interviewId || !inRoom(payload.interviewId)) return;
             socket.to(`interview:${payload.interviewId}`).emit("draw-move", {
                 userId,
                 point: payload.point,
@@ -176,12 +182,12 @@ export function registerSocketHandlers(io: Server) {
         });
 
         socket.on("draw-end", (payload: { interviewId: string }) => {
-            if (!payload?.interviewId) return;
+            if (!payload?.interviewId || !inRoom(payload.interviewId)) return;
             socket.to(`interview:${payload.interviewId}`).emit("draw-end", { userId });
         });
 
         socket.on("clear-canvas", (payload: { interviewId: string }) => {
-            if (!payload?.interviewId) return;
+            if (!payload?.interviewId || !inRoom(payload.interviewId)) return;
             socket.to(`interview:${payload.interviewId}`).emit("clear-canvas", { userId });
         });
 

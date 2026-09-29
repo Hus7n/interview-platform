@@ -279,12 +279,14 @@ export const interviewRepository = {
         return rows[0] ?? null;
     },
 
-    async findParticipants(interviewId: string) {
+        async findParticipants(interviewId: string) {
         const { rows } = await query(
-            `SELECT *
-       FROM interview_participants
-       WHERE interview_id = $1
-       ORDER BY role ASC, id ASC`,
+            `SELECT ip.*, u.email, p.display_name
+       FROM interview_participants ip
+       JOIN users u ON u.id = ip.user_id
+       LEFT JOIN profiles p ON p.user_id = ip.user_id
+       WHERE ip.interview_id = $1
+       ORDER BY ip.role ASC, ip.id ASC`,
             [interviewId]
         );
 
