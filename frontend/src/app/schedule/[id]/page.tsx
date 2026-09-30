@@ -4,8 +4,8 @@ import { useParams, useRouter } from "next/navigation";
 import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import InterviewForm from "@/components/InterviewForm";
-import { api, userName } from "@/lib/api";
-import type { Interview, Participant, User } from "@/lib/types";
+import { api } from "@/lib/api";
+import { userName, type Interview, type Participant, type User } from "@/lib/type";
 
 export default function Edit() {
   return (

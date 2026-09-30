@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
-import type { Role, User } from "@/lib/types";
+import type { Role, User } from "../lib/type";
 
 export function useAuth(required = false, allowed?: Role[]) {
   const [user, setUserState] = useState<User | null>(getUser<User>());

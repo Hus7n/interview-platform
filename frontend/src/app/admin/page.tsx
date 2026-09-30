@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
-import type { Interview, Role, User } from "@/lib/types";
+import type { Interview, Role, User } from "@/lib/type";
 import Link from "next/link";
 export default function Admin() {
   return (
@@ -25,7 +25,9 @@ function Inner() {
       setUsers(u.data);
       setI(i.data);
     });
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
   const update = async (id: string, v: Partial<User>) => {
     await api(`/api/admin/users/${id}`, {
       method: "PATCH",

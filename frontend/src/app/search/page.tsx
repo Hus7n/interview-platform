@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
-import { api, userName } from "@/lib/api";
-import type { Interview, Role, User } from "@/lib/types";
+import { api } from "@/lib/api";
+import { userName, type Interview, type Role, type User } from "@/lib/type";
 
 export default function Search() {
   const [q, setQ] = useState("");

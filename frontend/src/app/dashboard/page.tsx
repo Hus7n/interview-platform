@@ -5,7 +5,7 @@ import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import StatusBadge from "@/components/StatusBadge";
 import { api } from "@/lib/api";
-import type { Interview, User } from "@/lib/types";
+import type { Interview, User } from "@/lib/type";
 export default function Dashboard() {
   return (
     <Protected>

@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
-import type { Interview, User } from "@/lib/types";
+import type { Interview, User } from "@/lib/type";
 export default function Feedback() {
   return (
     <Protected roles={["admin", "interviewer"]}>
@@ -73,16 +73,16 @@ function Inner() {
             <h2 className="font-bold">Evaluation</h2>
             <div className="mt-6 grid gap-5 sm:grid-cols-3">
               {[
-                ["Technical", r, setR],
-                ["Communication", comm, setC],
-                ["Problem solving", p, setP],
-              ].map(([label, val, setter]) => (
-                <div key={String(label)}>
+                { label: "Technical", value: r, setValue: setR },
+                { label: "Communication", value: comm, setValue: setC },
+                { label: "Problem solving", value: p, setValue: setP },
+              ].map(({ label, value, setValue }) => (
+                <div key={label}>
                   <label className="label">{label}</label>
                   <select
                     className="input"
-                    value={val as number}
-                    onChange={(e) => (setter as any)(Number(e.target.value))}
+                    value={value}
+                    onChange={(e) => setValue(Number(e.target.value))}
                   >
                     {[1, 2, 3, 4, 5].map((n) => (
                       <option key={n}>{n}</option>

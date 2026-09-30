@@ -1,4 +1,4 @@
-import type { InterviewStatus } from "@/lib/types";
+import type { InterviewStatus } from "@/lib/type";
 export default function StatusBadge({
   status,
 }: {

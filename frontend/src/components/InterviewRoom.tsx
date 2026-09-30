@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { connectSocket } from "@/lib/socket";
 import { api } from "@/lib/api";
-import type { Interview, Participant, User } from "@/lib/types";
+import type { Interview, Participant, User } from "@/lib/type";
 import Link from "next/link";
 
 const langs = [
@@ -815,7 +815,7 @@ function Notes({
   onChanged: () => void;
 }) {
   const [content, setContent] = useState(initial[0]?.content || "");
-  const [id, setId] = useState(initial[0]?.id);
+  const [id, setId] = useState<string | undefined>(initial[0]?.id);
   const save = async () => {
     try {
       if (id)

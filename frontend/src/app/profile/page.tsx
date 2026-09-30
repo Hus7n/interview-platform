@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
-import type { User } from "@/lib/types";
+import type { User } from "@/lib/type";
 export default function Profile() {
   return (
     <Protected>

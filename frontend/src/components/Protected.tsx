@@ -1,6 +1,6 @@
 "use client";
 import { useAuth } from "@/hooks/useAuth";
-import type { Role } from "@/lib/types";
+import type { Role } from "@/lib/type";
 export default function Protected({
   children,
   roles,

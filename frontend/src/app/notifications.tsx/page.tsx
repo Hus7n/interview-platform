@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
-import type { Notification, User } from "@/lib/types";
+import type { Notification, User } from "@/lib/type";
 export default function Notifications() {
   return (
     <Protected>

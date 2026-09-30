@@ -1,7 +1,7 @@
 "use client";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
-import type { Role } from "@/lib/types";
+import type { Role } from "@/lib/type";
 export default function AppShell({
   children,
   role,

@@ -5,7 +5,7 @@ import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import StatusBadge from "@/components/StatusBadge";
 import { api } from "@/lib/api";
-import type { Interview, InterviewStatus, User } from "@/lib/types";
+import type { Interview, InterviewStatus, User } from "@/lib/type";
 import { useAuth } from "@/hooks/useAuth";
 export default function Interviews() {
   return (

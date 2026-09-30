@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
 import InterviewForm from "@/components/InterviewForm";
-import type { Interview } from "@/lib/types";
+import type { Interview } from "@/lib/type";
 export default function Schedule() {
   return (
     <Protected roles={["admin", "interviewer"]}>

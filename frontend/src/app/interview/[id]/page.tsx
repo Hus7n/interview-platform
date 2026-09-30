@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Protected from "@/components/Protected";
 import { api } from "@/lib/api";
-import type { Interview, User } from "@/lib/types";
+import type { Interview, User } from "@/lib/type";
 import InterviewRoom from "@/components/InterviewRoom";
 export default function Room() {
   return (

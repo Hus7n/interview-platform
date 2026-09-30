@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useState } from "react";
 import { api } from "@/lib/api";
-import type { Interview } from "@/lib/types";
+import type { Interview } from "@/lib/type";
 const schema = z.object({
   title: z.string().min(3),
   description: z.string().max(2000).optional(),
