@@ -1,72 +1,70 @@
-'use client';
+"use client";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { api, clearSession, getToken, getUser, setSession } from "@/lib/api";
+import type { Role, User } from "@/lib/types";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { api, getUser, setUser, setToken, clearToken, getToken } from '@/lib/api';
-
-interface User {
-  id: string;
-  email: string;
-  role: string;
-  displayName: string;
-}
-
-export function useAuth(requireAuth = false) {
-  const [user, setUserState] = useState<User | null>(null);
+export function useAuth(required = false, allowed?: Role[]) {
+  const [user, setUserState] = useState<User | null>(getUser<User>());
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-
   useEffect(() => {
-    const token = getToken();
-    const stored = getUser();
-    if (stored && token) {
-      setUserState(stored);
-      api<User>('/api/auth/me')
-        .then(setUserState)
-        .catch(() => {
-          clearToken();
-          setUserState(null);
-          if (requireAuth) router.push('/login');
-        })
-        .finally(() => setLoading(false));
-    } else {
+    if (!getToken()) {
       setLoading(false);
-      if (requireAuth) router.push('/login');
+      if (required) router.replace("/login");
+      return;
     }
-  }, [requireAuth, router]);
-
+    api<{ data: { user: User } }>("/api/auth/me")
+      .then((r) => {
+        setUserState(r.data.user);
+        if (allowed && !allowed.includes(r.data.user.role))
+          router.replace("/dashboard");
+      })
+      .catch(() => {
+        clearSession();
+        setUserState(null);
+        if (required) router.replace("/login");
+      })
+      .finally(() => setLoading(false));
+  }, [required, router, allowed?.join("|")]);
   const login = async (email: string, password: string) => {
-    const res = await api<{ user: User; token: string }>('/api/auth/login', {
-      method: 'POST',
+    const r = await api<{
+      data: { user: User; accessToken: string; refreshToken: string };
+    }>("/api/auth/login", {
+      method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    setToken(res.token);
-    setUser(res.user);
-    setUserState(res.user);
-    return res.user;
+    setSession(r.data.accessToken, r.data.refreshToken, r.data.user);
+    setUserState(r.data.user);
+    return r.data.user;
   };
-
   const register = async (data: {
     email: string;
     password: string;
     displayName: string;
-    role?: string;
+    role?: Role;
   }) => {
-    const res = await api<{ user: User; token: string }>('/api/auth/register', {
-      method: 'POST',
+    const r = await api<{ data: { user: User } }>("/api/auth/register", {
+      method: "POST",
       body: JSON.stringify(data),
     });
-    setToken(res.token);
-    setUser(res.user);
-    setUserState(res.user);
-    return res.user;
+    setUserState(r.data.user);
+    return r.data.user;
   };
-
-  const logout = () => {
-    clearToken();
+  const logout = async (all = false) => {
+    try {
+      await api(all ? "/api/auth/logout-all" : "/api/auth/logout", {
+        method: all ? "POST" : "POST",
+        body: all
+          ? undefined
+          : JSON.stringify({
+              refreshToken: localStorage.getItem("refreshToken"),
+            }),
+      });
+    } catch {}
+    clearSession();
     setUserState(null);
-    router.push('/login');
+    router.replace("/login");
   };
-
   return { user, loading, login, register, logout };
 }
