@@ -16,7 +16,7 @@ export const CreateInterviewSchema = z.object({
     scheduled_at : scheduledAtSchema,
     duration_minutes : z.coerce.number().int().min(15).max(480),
     language : z.string().trim().min(1).max(50),
-    starter_code : z.string().max(2000).optional().nullable(),
+    starter_code : z.string().max(20000).optional().nullable(),
 });
 
 export const UpdateInterviewSchema = z.object({

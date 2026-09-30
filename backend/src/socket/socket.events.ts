@@ -34,6 +34,16 @@ export function registerSocketHandlers(io: Server) {
             } catch (error) {
                 socket.emit("error", { message: (error as Error).message });
             }
+
+            socket.on("chat-message", (payload: { interviewId: string; message: string }) => {
+            if (!payload?.interviewId || !payload.message?.trim() || !inRoom(payload.interviewId)) return;
+            socket.to(`interview:${payload.interviewId}`).emit("chat-message", {
+                interviewId: payload.interviewId,
+                userId,
+                message: payload.message.trim().slice(0, 2000),
+                createdAt: new Date().toISOString(),
+            });
+        });
         });
 
         socket.on("leave-room", async (interviewId: string) => {
