@@ -1,7 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Inter+Tight:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-gray-950 text-gray-100 antialiased;
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    --bg: #000000;
+    --panel: #0a0a0a;
+    --chip: #1f1f1f;
+    --ring: rgba(255, 255, 255, 0.145);
+    --metric: #999999;
+    --muted: #666666;
+    --accent: #52a8ff;
+    --success: #62c073;
+    --danger: #f43f5e;
+    --warn: #f5b544;
+    --on-white: #121212;
+  }
+
+  * {
+    border-color: var(--ring);
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-black font-sans text-white antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: #000000;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-display font-medium text-white;
+    letter-spacing: -1px;
+    text-wrap: balance;
+  }
+
+  h1 {
+    letter-spacing: -2px;
+  }
+
+  :focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Native pickers / scrollbars on a black canvas */
+  input[type='datetime-local'],
+  input[type='date'],
+  input[type='time'],
+  input[type='color'] {
+    color-scheme: dark;
+  }
+
+  input[type='color']::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  input[type='color']::-webkit-color-swatch {
+    border: 1px solid var(--ring);
+  }
+
+  ::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.5;
+    cursor: pointer;
+  }
+
+  ::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+  }
+}
+
+@layer components {
+  /* ── Zero-radius brutalist primary CTA ───────────────────────── */
+  .btn-square {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-none bg-white px-5 py-2.5 text-sm font-medium text-[#121212] transition-all duration-200 hover:bg-[#52a8ff] hover:text-black active:translate-y-px disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .btn-primary {
+    @apply btn-square;
+  }
+
+  .btn-secondary {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-none border border-white/[0.145] bg-transparent px-5 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:border-[#52a8ff] hover:text-[#52a8ff] active:translate-y-px disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .btn-ghost {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-none px-3 py-2 text-sm font-medium text-[#999999] transition-colors duration-200 hover:text-white disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .btn-danger {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-none border border-[#f43f5e]/40 bg-[#f43f5e]/10 px-4 py-2 text-sm font-medium text-[#f43f5e] transition-all duration-200 hover:bg-[#f43f5e] hover:text-black active:translate-y-px disabled:pointer-events-none disabled:opacity-40;
+  }
+
+  .btn-icon {
+    @apply grid h-9 w-9 shrink-0 place-items-center border border-white/[0.145] bg-[#0a0a0a] text-[#999999] transition-colors duration-200 hover:border-[#52a8ff]/50 hover:text-white;
+  }
+
+  /* ── Card: #0a0a0a with 1px ring ─────────────────────────────── */
+  .card {
+    @apply rounded-none border border-white/[0.145] bg-[#0a0a0a] transition-colors duration-300;
+  }
+
+  .card-hover {
+    @apply hover:border-white/25;
+  }
+
+  .glass-card {
+    @apply rounded-none border border-white/[0.145] bg-[#0a0a0a];
+  }
+
+  /* ── Form controls ───────────────────────────────────────────── */
+  .input {
+    @apply w-full rounded-none border border-white/[0.145] bg-[#0a0a0a] px-4 py-2.5 text-sm text-white outline-none transition-all duration-200 placeholder:text-[#666666] focus:border-[#52a8ff] focus:ring-1 focus:ring-[#52a8ff]/40 disabled:opacity-50;
+  }
+
+  .select {
+    @apply input cursor-pointer appearance-none bg-[#0a0a0a] bg-[length:14px] bg-[right_0.85rem_center] bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2' stroke-linecap='square'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  }
+
+  .input-file {
+    @apply w-full cursor-pointer rounded-none border border-white/[0.145] bg-[#0a0a0a] px-4 py-2.5 text-xs text-[#999999] transition-colors duration-200 file:mr-3 file:rounded-none file:border-0 file:bg-[#1f1f1f] file:px-3 file:py-1.5 file:font-mono file:text-[11px] file:text-white hover:border-[#52a8ff]/40;
+  }
+
+  /* ── Status chips: 100px radius, #1f1f1f, 12px ───────────────── */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-[100px] border border-white/[0.145] bg-[#1f1f1f] px-3 py-1 text-xs leading-none text-[#999999] capitalize;
+  }
+
+  .chip-active {
+    @apply border-[#52a8ff]/40 bg-[#52a8ff]/10 text-[#52a8ff];
+  }
+
+  .chip-success {
+    @apply border-[#62c073]/40 bg-[#62c073]/10 text-[#62c073];
+  }
+
+  .chip-warn {
+    @apply border-[#f5b544]/40 bg-[#f5b544]/10 text-[#f5b544];
+  }
+
+  .chip-danger {
+    @apply border-[#f43f5e]/40 bg-[#f43f5e]/10 text-[#f43f5e];
+  }
+
+  /* ── Typography ──────────────────────────────────────────────── */
+  .page-title {
+    @apply font-display text-3xl font-medium tracking-[-2px] text-white sm:text-4xl;
+  }
+
+  .section-title {
+    @apply font-display text-lg font-medium tracking-[-1px] text-white;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.14em] text-[#52a8ff];
+  }
+
+  .muted {
+    @apply text-sm text-[#999999];
+  }
+
+  .label {
+    @apply mb-1.5 block font-mono text-[11px] uppercase tracking-[0.12em] text-[#666666];
+  }
+
+  /* Metrics / IDs / timestamps always mono + #999999 */
+  .metric {
+    @apply font-mono text-[#999999];
+  }
+
+  /* ── Layout flourishes ───────────────────────────────────────── */
+  .scrim {
+    background-image: linear-gradient(to top, rgba(0, 0, 0, 0.76) 0%, rgba(0, 0, 0, 0) 93.785%);
+  }
+
+  .glow-radial {
+    background-image: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(82, 168, 255, 0.14) 0%, rgba(0, 0, 0, 0) 70%);
+  }
+
+  .glow-radial-left {
+    background-image: radial-gradient(ellipse 50% 60% at 0% 0%, rgba(82, 168, 255, 0.16) 0%, rgba(0, 0, 0, 0) 70%);
+  }
+
+  .glow-radial-success {
+    background-image: radial-gradient(ellipse 60% 50% at 50% 100%, rgba(98, 192, 115, 0.12) 0%, rgba(0, 0, 0, 0) 70%);
+  }
+
+  .grid-overlay {
+    background-size: 40px 40px;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  }
+
+  .dots-overlay {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .rule {
+    @apply border-t border-white/[0.145];
+  }
+
+  .row-hover {
+    @apply transition-colors duration-200 hover:bg-white/[0.02];
+  }
+
+  .avatar-square {
+    @apply grid shrink-0 place-items-center bg-white font-semibold text-[#121212];
+  }
+
+  .skeleton {
+    @apply animate-pulse bg-white/[0.06];
+  }
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f1f1f;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

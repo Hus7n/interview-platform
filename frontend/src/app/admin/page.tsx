@@ -1,10 +1,35 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
 import Protected from "@/components/Protected";
 import AppShell from "@/components/AppShell";
+import StatusBadge from "@/components/StatusBadge";
+import {
+  Banner,
+  EmptyState,
+  IconTile,
+  PageHeader,
+  SectionCard,
+  SkeletonRows,
+  StatTile,
+} from "@/components/ui";
 import { api } from "@/lib/api";
 import type { Interview, Role, User } from "@/lib/type";
-import Link from "next/link";
+import {
+  ArrowUpRight,
+  BarChart3,
+  FileText,
+  Filter,
+  Search,
+  ShieldAlert,
+  Trash2,
+  UserCheck,
+  Users,
+  Video,
+} from "lucide-react";
+
 export default function Admin() {
   return (
     <Protected roles={["admin"]}>
@@ -12,155 +37,286 @@ export default function Admin() {
     </Protected>
   );
 }
+
 function Inner() {
   const [users, setUsers] = useState<User[]>([]);
-  const [interviews, setI] = useState<Interview[]>([]);
+  const [interviews, setInterviews] = useState<Interview[]>([]);
   const [role, setRole] = useState("");
-  const [search, setSearch] = useState("");
-  const load = () =>
-    Promise.all([
-      api<{ data: User[] }>("/api/admin/users?limit=50"),
-      api<{ data: Interview[] }>("/api/admin/interviews?limit=20"),
-    ]).then(([u, i]) => {
-      setUsers(u.data);
-      setI(i.data);
-    });
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      setError("");
+      const [u, i] = await Promise.all([
+        api<{ data: { users: User[] } | User[] }>("/api/admin/users?limit=50"),
+        api<{ data: { interviews: Interview[] } | Interview[] }>(
+          "/api/admin/interviews?limit=20",
+        ),
+      ]);
+      const uu = u?.data;
+      const ii = i?.data;
+      setUsers(Array.isArray(uu) ? uu : (uu?.users ?? []));
+      setInterviews(Array.isArray(ii) ? ii : (ii?.interviews ?? []));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load admin console");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, []);
-  const update = async (id: string, v: Partial<User>) => {
-    await api(`/api/admin/users/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(v),
-    });
-    load();
-  };
-  const del = async (id: string) => {
-    if (confirm("Delete this user?")) {
-      await api(`/api/admin/users/${id}`, { method: "DELETE" });
-      load();
+  }, [load]);
+
+  const run = async (fn: () => Promise<unknown>) => {
+    try {
+      setError("");
+      await fn();
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Action failed");
     }
   };
-  const shown = users.filter(
-    (u) =>
-      (!role || u.role === role) &&
-      (!search ||
-        `${u.displayName ?? u.display_name} ${u.email}`
-          .toLowerCase()
-          .includes(search.toLowerCase())),
+
+  const update = (id: string, patch: Record<string, unknown>) =>
+    run(() =>
+      api(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      }),
+    );
+
+  const remove = (u: User) => {
+    const name = u.displayName ?? u.display_name ?? u.email;
+    if (!confirm(`Delete ${name}? This permanently removes the account.`)) return;
+    void run(() => api(`/api/admin/users/${u.id}`, { method: "DELETE" }));
+  };
+
+  const shown = useMemo(
+    () =>
+      users.filter((u) => {
+        if (role && u.role !== role) return false;
+        if (!query) return true;
+        const name = u.displayName ?? u.display_name ?? "";
+        return `${name} ${u.email}`.toLowerCase().includes(query.toLowerCase());
+      }),
+    [users, role, query],
   );
+
+  const activeCount = users.filter((u) => (u.isActive ?? u.is_active) !== false).length;
+
   return (
     <AppShell role="admin">
-      <div>
-        <h1 className="page-title">Admin workspace</h1>
-        <p className="muted mt-1">
-          Manage users and monitor platform interviews.
-        </p>
+      <PageHeader
+        eyebrow={{ label: "Admin Console", tone: "warn" }}
+        crumb="workspace / admin"
+        title="Platform Administration"
+        description="Manage user roles and permissions, and monitor every interview room on the platform."
+        actions={
+          <>
+            <Link href="/admin/analytics" className="btn-secondary gap-2">
+              <BarChart3 className="h-4 w-4" /> Analytics
+            </Link>
+            <Link href="/admin/audit" className="btn-secondary gap-2">
+              <FileText className="h-4 w-4" /> Audit Logs
+            </Link>
+          </>
+        }
+      />
+
+      {error && (
+        <div className="mt-6">
+          <Banner>{error}</Banner>
+        </div>
+      )}
+
+      <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          index={0}
+          label="Total Users"
+          value={users.length}
+          icon={Users}
+          hint="registered accounts"
+        />
+        <StatTile
+          index={1}
+          label="Interviews"
+          value={interviews.length}
+          icon={Video}
+          tone="invert"
+          hint="most recent rooms"
+        />
+        <StatTile
+          index={2}
+          label="Active Accounts"
+          value={activeCount}
+          icon={UserCheck}
+          tone="success"
+          hint="not disabled by an admin"
+        />
+        <StatTile
+          index={3}
+          label="Admins"
+          value={users.filter((u) => u.role === "admin").length}
+          icon={ShieldAlert}
+          tone="warn"
+          hint="full platform access"
+        />
       </div>
-      <div className="mt-7 grid gap-4 md:grid-cols-3">
-        <div className="card p-5">
-          <p className="muted">Users</p>
-          <p className="mt-2 text-3xl font-bold">{users.length}</p>
-        </div>
-        <div className="card p-5">
-          <p className="muted">Interviews</p>
-          <p className="mt-2 text-3xl font-bold">{interviews.length}</p>
-        </div>
-        <div className="card p-5">
-          <p className="muted">Active users</p>
-          <p className="mt-2 text-3xl font-bold">
-            {users.filter((x) => x.isActive ?? x.is_active).length}
-          </p>
-        </div>
-      </div>
-      <div className="card mt-7 overflow-hidden">
-        <div className="flex flex-col gap-3 border-b border-line p-5 sm:flex-row">
-          <input
-            className="input mt-0"
-            placeholder="Find users…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="input mt-0 sm:max-w-48"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="">All roles</option>
-            <option>admin</option>
-            <option>interviewer</option>
-            <option>candidate</option>
-          </select>
-        </div>
-        <div className="divide-y divide-line">
-          {shown.map((u) => (
-            <div
-              className="grid gap-3 p-5 md:grid-cols-[1fr_150px_130px_130px]"
-              key={u.id}
-            >
-              <div>
-                <p className="font-semibold">
-                  {(u.displayName ?? u.display_name) || "Unnamed"}
-                </p>
-                <p className="text-xs text-muted">{u.email}</p>
-              </div>
-              <select
-                className="input mt-0"
-                value={u.role}
-                onChange={(e) => update(u.id, { role: e.target.value as Role })}
-              >
-                <option>admin</option>
-                <option>interviewer</option>
-                <option>candidate</option>
-              </select>
-              <button
-                className="btn-secondary"
-                onClick={() =>
-                  update(u.id, {
-                    is_active: !(u.isActive ?? u.is_active),
-                  } as any)
-                }
-              >
-                {(u.isActive ?? u.is_active) ? "Disable" : "Activate"}
-              </button>
-              <button className="btn-danger" onClick={() => del(u.id)}>
-                Delete
-              </button>
-            </div>
-          ))}
-          {!shown.length && (
-            <p className="p-8 text-center text-sm text-muted">
-              No users found.
-            </p>
-          )}
-        </div>
-      </div>
-      <div className="card mt-7 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-line p-5">
-          <h2 className="font-bold">Recent platform interviews</h2>
-          <Link
-            href="/admin/analytics"
-            className="text-sm font-semibold text-brand"
-          >
-            View analytics
-          </Link>
-        </div>
-        {interviews.map((i) => (
-          <div
-            className="flex flex-col justify-between gap-2 border-b border-line p-5 last:border-0 sm:flex-row sm:items-center"
-            key={i.id}
-          >
-            <div>
-              <p className="font-semibold">{i.title}</p>
-              <p className="text-xs text-muted">
-                {i.language} ·{" "}
-                {new Date(i.scheduledAt ?? i.scheduled_at).toLocaleString()}
-              </p>
-            </div>
-            <span className="text-xs font-semibold">{i.status}</span>
+
+      <SectionCard
+        icon={Users}
+        title={`User Directory (${shown.length})`}
+        description="Change a role or toggle account access."
+        className="mt-6"
+        bodyClassName="divide-y divide-white/[0.145]"
+      >
+        <div className="flex flex-col gap-3 border-b border-white/[0.145] p-4 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-3 h-4 w-4 text-[#666666]" />
+            <input
+              className="input pl-10 font-mono"
+              placeholder="Filter users by name or email…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
           </div>
-        ))}
-      </div>
+          <div className="relative sm:w-52">
+            <Filter className="absolute left-3.5 top-3 h-4 w-4 text-[#666666]" />
+            <select
+              className="select pl-10 font-mono"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
+              <option value="">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="interviewer">Interviewer</option>
+              <option value="candidate">Candidate</option>
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <SkeletonRows rows={4} />
+        ) : shown.length ? (
+          shown.map((u, idx) => {
+            const name = u.displayName ?? u.display_name;
+            const isActive = u.isActive ?? u.is_active;
+            return (
+              <motion.div
+                key={u.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.25) }}
+                className="grid items-center gap-3 p-4 md:grid-cols-[minmax(0,1fr)_170px_130px_44px]"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="avatar-square h-9 w-9 font-mono text-xs">
+                    {(name || "U").slice(0, 1).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-display text-sm font-medium tracking-[-0.5px] text-white">
+                      {name || "Unnamed User"}
+                    </p>
+                    <p className="metric truncate text-xs">{u.email}</p>
+                  </div>
+                </div>
+
+                <select
+                  className="select py-2 font-mono text-xs"
+                  value={u.role}
+                  onChange={(e) => update(u.id, { role: e.target.value as Role })}
+                >
+                  <option value="admin">Admin</option>
+                  <option value="interviewer">Interviewer</option>
+                  <option value="candidate">Candidate</option>
+                </select>
+
+                <button
+                  className={`btn-secondary justify-self-start px-3 py-2 font-mono text-[11px] ${
+                    isActive === false
+                      ? "border-[#62c073]/40 text-[#62c073]"
+                      : ""
+                  }`}
+                  onClick={() => update(u.id, { is_active: isActive === false })}
+                >
+                  {isActive === false ? "Activate" : "Disable"}
+                </button>
+
+                <button
+                  className="btn-icon text-[#f43f5e]"
+                  title={`Delete ${u.email}`}
+                  onClick={() => remove(u)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </motion.div>
+            );
+          })
+        ) : (
+          <EmptyState
+            icon={Users}
+            title="No users match"
+            description="Adjust the role filter or clear your search term."
+          />
+        )}
+      </SectionCard>
+
+      <SectionCard
+        icon={Video}
+        title="Recent Platform Interviews"
+        description="Every room created on the workspace, newest first."
+        className="mt-6"
+        action={
+          <Link
+            href="/interviews"
+            className="flex items-center gap-1 font-mono text-xs text-[#52a8ff] hover:underline"
+          >
+            All interviews <ArrowUpRight className="h-3.5 w-3.5" />
+          </Link>
+        }
+        bodyClassName="divide-y divide-white/[0.145]"
+      >
+        {loading ? (
+          <SkeletonRows rows={3} />
+        ) : interviews.length ? (
+          interviews.map((i) => (
+            <Link
+              key={i.id}
+              href={`/interview/${i.id}`}
+              className="row-hover flex flex-col justify-between gap-2 p-4 sm:flex-row sm:items-center"
+            >
+              <div className="min-w-0">
+                <p className="truncate font-display text-sm font-medium tracking-[-0.5px] text-white">
+                  {i.title}
+                </p>
+                <p className="metric mt-1 text-xs">
+                  {i.language} ·{" "}
+                  {i.scheduledAt
+                    ? new Date(i.scheduledAt).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })
+                    : "unscheduled"}{" "}
+                  · {i.participantCount ?? 0} participants
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={i.status} />
+                <IconTile icon={ArrowUpRight} tone="muted" size="sm" />
+              </div>
+            </Link>
+          ))
+        ) : (
+          <EmptyState
+            icon={Video}
+            title="No interviews yet"
+            description="Rooms created by interviewers will show up here."
+          />
+        )}
+      </SectionCard>
     </AppShell>
   );
 }
