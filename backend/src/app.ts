@@ -25,7 +25,35 @@ const app = express();
 app.use(helmet());
 app.use(morgan("dev"));
 
-app.use(cors({ origin: env.frontendUrl, credentials: true }));
+/**
+ * Accept every local dev spelling of the frontend origin. Browsers treat
+ * `localhost` and `127.0.0.1` as distinct origins, so a single-string list
+ * silently blocks one of them and the request fails in the console while
+ * looking healthy from curl. Production stays locked to FRONTEND_URL.
+ */
+const devOrigins = [3000, 3111]
+    .flatMap((port) => [
+        `http://localhost:${port}`,
+        `http://127.0.0.1:${port}`,
+    ]);
+
+const allowedOrigins =
+    env.nodeEnv === "production"
+        ? [env.frontendUrl]
+        : [env.frontendUrl, ...devOrigins];
+
+app.use(
+    cors({
+        origin(origin, callback) {
+            // Same-origin/non-browser callers send no Origin header.
+            if (!origin || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+        },
+        credentials: true,
+    })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());

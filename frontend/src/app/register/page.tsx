@@ -16,11 +16,25 @@ import {
   ArrowRight,
 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import PasswordInput from "@/components/PasswordInput";
+
+/**
+ * Mirrors backend/src/utils/password.ts. Validating here means a weak password
+ * is reported under the field that caused it rather than as a form-wide error.
+ */
+const passwordRule = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be at most 128 characters")
+  .regex(/[A-Z]/, "Password must include at least one uppercase letter")
+  .regex(/[a-z]/, "Password must include at least one lowercase letter")
+  .regex(/\d/, "Password must include at least one number")
+  .regex(/[@$!%*?&]/, "Password must include at least one special character (@$!%*?&)");
 
 const schema = z.object({
   displayName: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: passwordRule,
   role: z.enum(["candidate", "interviewer"]),
 });
 
@@ -97,15 +111,11 @@ export default function Register() {
           <label className="label">
             Password
           </label>
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-3 h-4 w-4 text-[#666666]" />
-            <input
-              className="input pl-10 font-mono"
-              type="password"
-              placeholder="••••••••"
+<PasswordInput
+              icon={<Lock />}
+              placeholder="Minimum 8 characters"
               {...register("password")}
             />
-          </div>
           {errors.password && (
             <p className="mt-1 font-mono text-xs text-[#f43f5e]">
               {errors.password.message}

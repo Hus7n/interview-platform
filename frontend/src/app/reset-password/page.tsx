@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import Link from "next/link";
 import AuthLayout from "@/components/AuthLayout";
 import { Banner } from "@/components/ui";
+import PasswordInput from "@/components/PasswordInput";
 import { KeyRound, ShieldCheck } from "lucide-react";
 
 function strength(pw: string) {
@@ -72,21 +73,17 @@ function ResetContent() {
         <label htmlFor="password" className="label">
           New password
         </label>
-        <div className="relative">
-          <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#666666]" />
-          <input
-            id="password"
-            type="password"
-            name="password"
-            autoComplete="new-password"
-            minLength={8}
-            value={password}
-            onChange={(ev) => setPassword(ev.target.value)}
-            className="input pl-10"
-            placeholder="Minimum 8 characters"
-            required
-          />
-        </div>
+        <PasswordInput
+          id="password"
+          icon={<KeyRound />}
+          name="password"
+          autoComplete="new-password"
+          minLength={8}
+          value={password}
+          onChange={(ev) => setPassword(ev.target.value)}
+          placeholder="Minimum 8 characters"
+          required
+        />
 
         {password && (
           <div className="mt-2">
@@ -110,20 +107,16 @@ function ResetContent() {
         <label htmlFor="confirm" className="label">
           Confirm password
         </label>
-        <div className="relative">
-          <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#666666]" />
-          <input
-            id="confirm"
-            type="password"
-            name="confirm"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(ev) => setConfirm(ev.target.value)}
-            className="input pl-10"
-            placeholder="Repeat your password"
-            required
-          />
-        </div>
+        <PasswordInput
+          id="confirm"
+          icon={<ShieldCheck />}
+          name="confirm"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(ev) => setConfirm(ev.target.value)}
+          placeholder="Repeat your password"
+          required
+        />
       </div>
 
       {e && <Banner tone="error">{e}</Banner>}

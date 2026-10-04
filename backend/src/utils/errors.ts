@@ -103,23 +103,70 @@ export function isApiError(error : unknown) : error is ApiError{
     );
 }
 
+const DEFAULT_CODE_BY_STATUS : Partial<Record<number , ErrorCode>> = {
+    400 : "BAD_REQUEST",
+    401 : "UNAUTHORIZED",
+    403 : "FORBIDDEN",
+    404 : "NOT_FOUND",
+    409 : "CONFLICT",
+    413 : "FILE_TOO_LARGE",
+    415 : "INVALID_FILE_TYPE",
+    429 : "RATE_LIMITED",
+};
+
+/**
+ * Several modules raise ad-hoc errors as `Object.assign(new Error(msg), {statusCode})`
+ * to avoid a circular import on the HTTP helpers. Those never carry `expose`,
+ * so they used to fail the `isApiError` shape check and collapse into a blanket
+ * "Internal server error" 500 - hiding messages such as the password-policy
+ * failures that the client genuinely needs to show. Honour the status they
+ * declare and expose any 4xx message.
+ */
+function normalizeError(error : unknown) : ApiError | null{
+    if(isApiError(error)){
+        return error;
+    }
+
+    if(error instanceof Error){
+        const candidate = error as Error & {statusCode ?: unknown; code ?: unknown};
+        const statusCode = typeof candidate.statusCode === "number"
+            ? candidate.statusCode
+            : 500;
+
+        if(statusCode >= 400 && statusCode <= 599){
+            return{
+                statusCode,
+                code : typeof candidate.code === "string"
+                    ? (candidate.code as ErrorCode)
+                    : DEFAULT_CODE_BY_STATUS[statusCode] ?? "INTERNAL_SERVER_ERROR",
+                message : candidate.message,
+                expose : statusCode < 500,
+                stack : candidate.stack,
+            };
+        }
+    }
+
+    return null;
+}
+
 export function errorResponse(error : unknown){
     const isDevelopment = env.nodeEnv !== "production";
+    const normalized = normalizeError(error);
 
-    if(isApiError(error)){
+    if(normalized){
         const body:{
             error : ErrorCode;
             message : string;
             stack ?: string;
         }={
-            error : error.code,
-            message : error.expose ? error.message : "Internal server error",
+            error : normalized.code,
+            message : normalized.expose ? normalized.message : "Internal server error",
         };
-        if(isDevelopment && error.stack){
-            body.stack = error.stack;
+        if(isDevelopment && normalized.stack){
+            body.stack = normalized.stack;
         }
         return{
-            statusCode : error.statusCode,
+            statusCode : normalized.statusCode,
             body,
         };
     }

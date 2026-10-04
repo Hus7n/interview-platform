@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import AuthLayout from "@/components/AuthLayout";
+import PasswordInput from "@/components/PasswordInput";
 
 const schema = z.object({
   email: z.string().email("Invalid email address"),
@@ -79,15 +80,11 @@ export default function Login() {
               Forgot password?
             </Link>
           </div>
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-3 h-4 w-4 text-[#666666]" />
-            <input
-              className="input pl-10 font-mono"
-              type="password"
-              placeholder="••••••••"
-              {...register("password")}
-            />
-          </div>
+          <PasswordInput
+            icon={<Lock />}
+            placeholder="••••••••"
+            {...register("password")}
+          />
           {errors.password && (
             <p className="mt-1 font-mono text-xs text-[#f43f5e]">
               {errors.password.message}

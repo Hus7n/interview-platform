@@ -21,6 +21,7 @@ import {
     unauthorized
 } from "../utils/errors.js";
 import { mailService } from "../mail/mail.service.js";
+import { env } from "../config/env.js";
 
 type RegisterInput = {
     email : string;
@@ -74,6 +75,20 @@ export const authService = {
         const verificationToken = generateToken();
         await authRepository.setVerifyToken(user.id , hashToken(verificationToken),expireInHours(24));
         await mailService.sendVerificationEmail(normalizedEmail, displayName, verificationToken).catch(() => {});
+
+        /**
+         * Without an SMTP transport the verification mail is silently dropped,
+         * which would lock the account out of its own login. Outside production
+         * that means verify immediately instead of stranding the user.
+         */
+        if(!env.smtp.host && env.nodeEnv !== "production"){
+            await authRepository.verifyEmailByTokenHash(hashToken(verificationToken));
+            const verifiedUser = (await authRepository.findById(user.id) as UserRecord | null) ?? user;
+            return{
+                user:sanitizeUser(verifiedUser),
+            };
+        }
+
         return{
             user:sanitizeUser(user),
         };
