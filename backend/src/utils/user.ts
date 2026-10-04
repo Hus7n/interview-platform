@@ -13,6 +13,8 @@ export function sanitizeUser(user : UserRecord) : SafeUser{
         role:user.role,
         displayName:user.display_name ?? null,
         avatarUrl : user.avatar_url ?? null,
+        resumeUrl : user.resume_url ?? null,
+        resumeOriginalName : user.resume_original_name ?? null,
         emailVerified : user.email_verified ?? false,
         isActive :user.is_active,
         createdAt : user.created_at ?? new Date(),

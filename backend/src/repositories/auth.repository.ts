@@ -13,7 +13,7 @@ interface CreateUserData  {
 export const authRepository = {
     async findByEmail(email : string){
         const {rows} = await query(
-            `SELECT u.*, p.display_name,p.avatar_url FROM users u
+            `SELECT u.*, p.display_name, p.avatar_url, p.resume_url, p.resume_original_name FROM users u
             LEFT JOIN profiles p ON p.user_id = u.id
             WHERE u.email = $1 LIMIT 1`,[email]
         );
@@ -22,7 +22,7 @@ export const authRepository = {
 
     async findById(id:string){
         const {rows} = await query(
-            `SELECT u.*,p.display_name,p.avatar_url
+            `SELECT u.*,p.display_name, p.avatar_url, p.resume_url, p.resume_original_name
             FROM users u LEFT JOIN profiles p ON p.user_id = u.id
             WHERE u.id = $1 LIMIT 1`,[id]
         );
@@ -128,7 +128,7 @@ export const authRepository = {
             AND verify_token_expires > NOW() AND email_verified = FALSE
             RETURNING *
         )
-        SELECT v.*, p.display_name, p.avatar_url
+        SELECT v.*, p.display_name, p.avatar_url, p.resume_url, p.resume_original_name
         FROM verified v
         LEFT JOIN profiles p ON p.user_id = v.id`,[tokenHash]
         ); 
@@ -182,6 +182,16 @@ export const authRepository = {
         `UPDATE profiles SET avatar_url = $1,
         updated_at = NOW() WHERE user_id = $2
         RETURNING *`, [avatarUrl, userId]
+        );
+
+        return rows[0] ?? null;
+    },
+
+    async updateResume(userId : string , resumeUrl : string | null , originalName : string | null){
+        const {rows} = await query(
+        `UPDATE profiles SET resume_url = $1, resume_original_name = $2,
+        updated_at = NOW() WHERE user_id = $3
+        RETURNING *`, [resumeUrl, originalName, userId]
         );
 
         return rows[0] ?? null;

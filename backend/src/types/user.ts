@@ -13,6 +13,8 @@ export type UserRecord = {
     is_active : boolean;
     display_name ?: string | null;
     avatar_url ?: string | null;
+    resume_url ?: string | null;
+    resume_original_name ?: string | null;
     email_verified ?:boolean;
     created_at ?: Date | string ;
     updated_at ?: Date | string;
@@ -25,6 +27,8 @@ export type SafeUser = {
     role : UserRole ;
     displayName : string | null;
     avatarUrl : string | null;
+    resumeUrl : string | null;
+    resumeOriginalName : string | null;
     emailVerified : boolean ;
     isActive : boolean ;
     createdAt ?: Date | string;

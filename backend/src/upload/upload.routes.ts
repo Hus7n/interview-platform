@@ -16,3 +16,5 @@ uploadRouter.delete("/avatar", uploadController.deleteAvatar);
 uploadRouter.post("/resume", (req, res, next) => {
     uploadResume(req, res, next);
 }, uploadController.uploadResume);
+
+uploadRouter.delete("/resume", uploadController.deleteResume);

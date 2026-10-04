@@ -54,15 +54,46 @@ export const uploadController = {
 
     async uploadResume(req: Request, res: Response, next: NextFunction) {
         try {
+            const authUser = getAuthUser(req);
             const file = req.file;
             if (!file) throw badRequest("No file uploaded");
 
+            // Replace any previous resume so the profile never points at a
+            // file that has been deleted from disk.
+            const existing = await authRepository.findById(authUser.userId) as {
+                resume_url?: string | null;
+            } | null;
+            if (existing?.resume_url) {
+                await storage.delete(existing.resume_url);
+            }
+
             const url = await storage.save(file.buffer, file.originalname, "resumes");
+            await authRepository.updateResume(authUser.userId, url, file.originalname);
 
             res.status(200).json({
                 success: true,
                 message: "Resume uploaded successfully",
                 data: { url, originalName: file.originalname },
+            });
+        } catch (error) {
+            next(error);
+        }
+    },
+
+    async deleteResume(req: Request, res: Response, next: NextFunction) {
+        try {
+            const authUser = getAuthUser(req);
+            const user = await authRepository.findById(authUser.userId) as {
+                resume_url?: string | null;
+            } | null;
+            if (!user?.resume_url) throw notFound("No resume to delete");
+
+            await storage.delete(user.resume_url);
+            await authRepository.updateResume(authUser.userId, null, null);
+
+            res.status(200).json({
+                success: true,
+                message: "Resume deleted successfully",
             });
         } catch (error) {
             next(error);

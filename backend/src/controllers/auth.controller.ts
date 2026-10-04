@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { authService } from "../services/auth.service.js";
+import { auditService } from "../services/audit.service.js";
 import { parseRequest } from "../utils/validate.js";
 import {
     forgotPasswordSchema,
@@ -41,6 +42,15 @@ export const authController = {
             const input = parseRequest(registerSchema, req.body);
             const result = await authService.register(input);
 
+            await auditService.record({
+                action: "auth.register",
+                entity: "auth",
+                entityId: result.user?.id,
+                userId: result.user?.id,
+                ipAddress: req.ip,
+                details: { role: result.user?.role ?? null },
+            });
+
             res.status(201).json({
                 success: true,
                 message: "User registered successfully",
@@ -52,9 +62,23 @@ export const authController = {
     },
 
     async login(req: Request, res: Response, next: NextFunction) {
+        // Read the identifier up front so a rejected attempt is still auditable.
+        const email =
+            typeof req.body?.email === "string"
+                ? req.body.email.trim().toLowerCase()
+                : null;
         try {
             const input = parseRequest(loginSchema, req.body);
             const result = await authService.login(input);
+
+            await auditService.record({
+                action: "auth.login",
+                entity: "auth",
+                entityId: result.user?.id,
+                userId: result.user?.id,
+                ipAddress: req.ip,
+                details: { email, role: result.user?.role ?? null },
+            });
 
             res.status(200).json({
                 success: true,
@@ -62,6 +86,12 @@ export const authController = {
                 data: result,
             });
         } catch (error) {
+            await auditService.record({
+                action: "auth.login_failed",
+                entity: "auth",
+                ipAddress: req.ip,
+                details: { email },
+            });
             next(error);
         }
     },
@@ -101,6 +131,13 @@ export const authController = {
                 throw badRequest("Authenticated user is required");
             }
             await authService.logoutAll(req.user.userId);
+            await auditService.record({
+                action: "auth.logout_all",
+                entity: "auth",
+                entityId: req.user.userId,
+                userId: req.user.userId,
+                ipAddress: req.ip,
+            });
             res.status(200).json({
                 success: true,
                 message: "Logged out from all devices successfully",
@@ -145,6 +182,12 @@ export const authController = {
         try {
             const input = parseRequest(forgotPasswordSchema, req.body);
             await authService.forgotPassword(input.email);
+            await auditService.record({
+                action: "auth.password_reset_requested",
+                entity: "auth",
+                ipAddress: req.ip,
+                details: { email: input.email },
+            });
 
             res.status(200).json({
                 success: true,
@@ -159,6 +202,11 @@ export const authController = {
         try {
             const input = parseRequest(resetPasswordSchema, req.body);
             await authService.resetPassword(input);
+            await auditService.record({
+                action: "auth.password_reset",
+                entity: "auth",
+                ipAddress: req.ip,
+            });
 
             res.status(200).json({
                 success: true,

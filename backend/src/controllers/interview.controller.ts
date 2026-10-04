@@ -10,12 +10,34 @@ import {
     UpdateInterviewSchema,
 } from "../validators/interview.schema.js";
 import { parseRequest, getAuthUser } from "../utils/validate.js";
+import { auditService } from "../services/audit.service.js";
+
+/** Records one interview lifecycle event for the admin audit trail. */
+async function auditInterview(
+    req: Request,
+    action: string,
+    interviewId: string,
+    details?: Record<string, unknown>
+) {
+    await auditService.record({
+        action,
+        entity: "interview",
+        entityId: interviewId,
+        userId: req.user?.userId,
+        ipAddress: req.ip,
+        details: details ?? null,
+    });
+}
 
 export const interviewController = {
     async createInterview(req: Request, res: Response, next: NextFunction) {
         try {
             const input = parseRequest(CreateInterviewSchema, req.body);
             const interview = await interviewService.createInterview(input, getAuthUser(req));
+            await auditInterview(req, "interview.create", interview.id, {
+                title: interview.title,
+                scheduledAt: interview.scheduledAt,
+            });
 
             res.status(201).json({
                 success: true,
@@ -32,6 +54,9 @@ export const interviewController = {
             const { id } = parseRequest(InterviewIdSchema, req.params);
             const input = parseRequest(UpdateInterviewSchema, req.body);
             const interview = await interviewService.updateInterview(id, input, getAuthUser(req));
+            await auditInterview(req, "interview.update", id, {
+                changed: Object.keys(input),
+            });
 
             res.status(200).json({
                 success: true,
@@ -47,6 +72,7 @@ export const interviewController = {
         try {
             const { id } = parseRequest(InterviewIdSchema, req.params);
             await interviewService.deleteInterview(id, getAuthUser(req));
+            await auditInterview(req, "interview.delete", id);
 
             res.status(200).json({
                 success: true,
@@ -94,6 +120,10 @@ export const interviewController = {
                 status,
                 getAuthUser(req)
             );
+            await auditInterview(req, "interview.status_change", id, {
+                to: status,
+                from: interview?.status ?? null,
+            });
 
             res.status(200).json({
                 success: true,
@@ -110,6 +140,10 @@ export const interviewController = {
             const { id } = parseRequest(InterviewIdSchema, req.params);
             const input = parseRequest(AddParticipantSchema, req.body);
             const participant = await interviewService.addParticipant(id, input, getAuthUser(req));
+            await auditInterview(req, "interview.participant_add", id, {
+                userId: input.user_id,
+                role: input.role,
+            });
 
             res.status(201).json({
                 success: true,
@@ -126,6 +160,9 @@ export const interviewController = {
             const { id } = parseRequest(InterviewIdSchema, req.params);
             const input = parseRequest(RemoveParticipantSchema, req.body);
             await interviewService.removeParticipant(id, input, getAuthUser(req));
+            await auditInterview(req, "interview.participant_remove", id, {
+                userId: input.user_id,
+            });
 
             res.status(200).json({
                 success: true,
