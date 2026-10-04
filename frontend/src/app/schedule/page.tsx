@@ -39,15 +39,15 @@ function Inner() {
           className="card mt-7 p-6 sm:p-8"
         >
           <InterviewForm
-            onSaved={(i: Interview) => router.push(`/interview/${i.id}`)}
+            onSaved={(i: Interview) => router.push(`/schedule/${i.id}`)}
           />
         </motion.div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           {[
-            { icon: Video, label: "Room created", hint: "WebRTC link generated" },
+            { icon: Video, label: "Room reserved", hint: "private link generated" },
             { icon: Code2, label: "Monaco editor", hint: "starter code preloaded" },
-            { icon: Clock, label: "Reminders sent", hint: "email + in-app invites" },
+            { icon: Clock, label: "Invites on save", hint: "in-app notice + email" },
           ].map((x, i) => (
             <motion.div
               key={x.label}
@@ -69,8 +69,8 @@ function Inner() {
 
         <p className="metric mt-6 flex items-center gap-2 text-[11px]">
           <CalendarPlus className="h-3.5 w-3.5 text-[#666666]" />
-          Interviews must be scheduled in the future. Cancelled rooms keep their
-          scorecards.
+          Creating a session does not start it. You land on the setup page to invite
+          participants, then press Start when the time comes.
         </p>
       </div>
     </AppShell>

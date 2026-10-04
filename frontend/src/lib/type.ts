@@ -53,6 +53,27 @@ export type Participant = {
   display_name?: string;
   email?: string;
 };
+
+/**
+ * Mirrors the backend `InviteResult`. `emailDelivered` is authoritative: when
+ * SMTP is unconfigured it is false and the UI must say so rather than implying
+ * the candidate was emailed.
+ */
+export type InviteResult = {
+  userId: string;
+  email: string;
+  displayName: string;
+  role: "interviewer" | "candidate";
+  notifiedInApp: boolean;
+  emailDelivered: boolean;
+  emailReason?: string;
+  joinUrl: string;
+};
+
+export type CreateInterviewResponse = Interview & {
+  invites: InviteResult[];
+  skipped: { userId: string; reason: string }[];
+};
 export type Notification = {
   id: string;
   title?: string;

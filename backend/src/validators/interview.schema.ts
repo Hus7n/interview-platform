@@ -17,6 +17,14 @@ export const CreateInterviewSchema = z.object({
     duration_minutes : z.coerce.number().int().min(15).max(480),
     language : z.string().trim().min(1).max(50),
     starter_code : z.string().max(20000).optional().nullable(),
+    participants : z
+        .array(z.object({
+            user_id : z.string().uuid(),
+            role : participantRoleSchema.default("candidate"),
+        }))
+        .max(20)
+        .optional()
+        .default([]),
 });
 
 export const UpdateInterviewSchema = z.object({

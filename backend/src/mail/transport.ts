@@ -10,26 +10,48 @@ const transport = env.smtp.host
     })
     : null;
 
+/**
+ * Outcome of a single delivery attempt. Callers must surface this to the user:
+ * a "skipped" email is not a sent email, and pretending otherwise is how
+ * interview invitations silently disappeared.
+ */
+export type MailResult = {
+    delivered: boolean;
+    reason?: "smtp_not_configured" | "send_failed";
+    detail?: string;
+};
+
+export function isMailConfigured() {
+    return transport !== null;
+}
+
 export async function sendMail(options: {
     to: string;
     subject: string;
     html: string;
     previewLink?: string;
-}) {
+}): Promise<MailResult> {
     if (!transport) {
-        if (env.nodeEnv !== "production") {
-            console.log(`[mail] SMTP not configured. Skipping email to ${options.to}: ${options.subject}`);
-            if (options.previewLink) {
-                console.log(`[mail] Local link: ${options.previewLink}`);
-            }
+        console.warn(
+            `[mail] SMTP not configured — NOT delivered to ${options.to}: "${options.subject}"`,
+        );
+        if (options.previewLink) {
+            console.warn(`[mail]   local link: ${options.previewLink}`);
         }
-        return;
+        return { delivered: false, reason: "smtp_not_configured" };
     }
 
-    await transport.sendMail({
-        from: env.smtp.from,
-        to: options.to,
-        subject: options.subject,
-        html: options.html,
-    });
+    try {
+        await transport.sendMail({
+            from: env.smtp.from,
+            to: options.to,
+            subject: options.subject,
+            html: options.html,
+        });
+        return { delivered: true };
+    } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        console.error(`[mail] Failed to send "${options.subject}" to ${options.to}: ${detail}`);
+        return { delivered: false, reason: "send_failed", detail };
+    }
 }

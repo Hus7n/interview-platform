@@ -7,7 +7,7 @@ import type {
     UpdateInterviewInput,
 } from "../validators/interview.schema.js";
 
-type CreateInterviewData = CreateInterviewInput & {
+type CreateInterviewData = Omit<CreateInterviewInput, "participants"> & {
     room_id: string;
     created_by: string;
     status: InterviewStatus;

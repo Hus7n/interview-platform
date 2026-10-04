@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { interviewService } from "../services/interview.service.js";
+import { isMailConfigured } from "../mail/mail.service.js";
 import {
     AddParticipantSchema,
     CreateInterviewSchema,
@@ -37,12 +38,18 @@ export const interviewController = {
             await auditInterview(req, "interview.create", interview.id, {
                 title: interview.title,
                 scheduledAt: interview.scheduledAt,
+                invited: interview.invites.length,
             });
 
             res.status(201).json({
                 success: true,
                 message: "Interview created successfully",
-                data: { interview },
+                data: {
+                    interview,
+                    invites: interview.invites,
+                    skipped: interview.skipped,
+                    mailConfigured: isMailConfigured(),
+                },
             });
         } catch (error) {
             next(error);
@@ -139,16 +146,23 @@ export const interviewController = {
         try {
             const { id } = parseRequest(InterviewIdSchema, req.params);
             const input = parseRequest(AddParticipantSchema, req.body);
-            const participant = await interviewService.addParticipant(id, input, getAuthUser(req));
+            const { participant, invite } = await interviewService.addParticipant(
+                id,
+                input,
+                getAuthUser(req),
+            );
             await auditInterview(req, "interview.participant_add", id, {
                 userId: input.user_id,
                 role: input.role,
+                emailDelivered: invite?.emailDelivered ?? false,
             });
 
             res.status(201).json({
                 success: true,
-                message: "Participant added successfully",
-                data: { participant },
+                message: invite?.emailDelivered
+                    ? "Participant added and invitation emailed"
+                    : "Participant added and notified in-app",
+                data: { participant, invite, mailConfigured: isMailConfigured() },
             });
         } catch (error) {
             next(error);

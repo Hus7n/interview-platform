@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import { connectSocket } from "@/lib/socket";
 import { api } from "@/lib/api";
+import { countdownParts, formatCountdown, formatDateTime } from "@/lib/time";
 import type { Interview, Participant, User } from "@/lib/type";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -328,6 +329,7 @@ export default function InterviewRoom({
   const [loadingCode, setLoadingCode] = useState(true);
   const [mediaError, setMediaError] = useState("");
   const [advancing, setAdvancing] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const localRef = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
@@ -445,12 +447,18 @@ export default function InterviewRoom({
     };
   }, [interview.id, user.id]);
 
+  /* ── Countdown while the session is still scheduled ── */
+  useEffect(() => {
+    if (interview.status !== "scheduled") return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [interview.status]);
+
   useEffect(() => {
     if (localRef.current && streamRef.current) {
       localRef.current.srcObject = streamRef.current;
     }
   }, [videoOn]);
-
   useEffect(() => {
     if (remoteRef.current) remoteRef.current.srcObject = remote;
   }, [remote]);
@@ -683,6 +691,19 @@ export default function InterviewRoom({
           ? "completed"
           : null;
     if (!next) return;
+
+    /* Soft gate: an early start is allowed but must be deliberate. */
+    if (next === "in_progress") {
+      const { isPast } = countdownParts(interview.scheduledAt, now);
+      if (!isPast) {
+        const ok = confirm(
+          `This session is scheduled for ${formatDateTime(interview.scheduledAt)}.\n\n` +
+            `Starting it now begins the interview ${formatCountdown(interview.scheduledAt, now)} early. Continue?`,
+        );
+        if (!ok) return;
+      }
+    }
+
     try {
       setAdvancing(true);
       await api(`/api/interviews/${interview.id}/status`, {
@@ -707,10 +728,16 @@ export default function InterviewRoom({
           <div className="min-w-0">
             <p className="flex items-center gap-2 truncate font-display text-sm font-medium tracking-[-1px]">
               <span className="truncate">{interview.title}</span>
-              <span className="chip chip-success hidden font-mono sm:inline-flex">
-                <span className="h-1.5 w-1.5 animate-ping rounded-full bg-[#62c073]" />
-                {online} live
-              </span>
+              {interview.status === "in_progress" ? (
+                <span className="chip chip-success hidden font-mono sm:inline-flex">
+                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-[#62c073]" />
+                  {online} live
+                </span>
+              ) : (
+                <span className="chip hidden font-mono sm:inline-flex">
+                  {online} waiting
+                </span>
+              )}
             </p>
             <p className="metric truncate font-mono text-[10px]">
               room {String(interview.roomId ?? interview.room_id ?? "").slice(0, 8)} ·{" "}
@@ -766,6 +793,22 @@ export default function InterviewRoom({
       {mediaError && (
         <div className="shrink-0 px-3 pt-3 sm:px-4">
           <Banner tone="info">{mediaError}</Banner>
+        </div>
+      )}
+
+      {/* ── Scheduled (not yet live) notice ── */}
+      {interview.status === "scheduled" && (
+        <div className="shrink-0 px-3 pt-3 sm:px-4">
+          <Banner tone="info">
+            <strong className="font-semibold text-white">Not started.</strong>{" "}
+            Scheduled for {formatDateTime(interview.scheduledAt)} —{" "}
+            {countdownParts(interview.scheduledAt, now).isPast
+              ? "the start time has arrived."
+              : `T-minus ${formatCountdown(interview.scheduledAt, now)}.`}{" "}
+            {canManage
+              ? 'Press "Start session" when the candidate is ready — starting early asks for confirmation.'
+              : "Your interviewer will start the session. You can wait here."}
+          </Banner>
         </div>
       )}
 

@@ -5,13 +5,17 @@ import type {
     CreateInterviewInput,
     InterviewStatus,
     ListInterviewInput,
+    ParticipantRole,
     RemoveParticipantInput,
     UpdateInterviewInput,
 } from "../validators/interview.schema.js";
 import type { AuthUser } from "../types/user.js";
 import { badRequest, conflict, forbidden, notFound } from "../utils/errors.js";
 import { mailService } from "../mail/mail.service.js";
+import { formatWhen } from "../mail/templates.js";
+import { notificationsRepository } from "../repositories/notification.repository.js";
 import { authRepository } from "../repositories/auth.repository.js";
+import { env } from "../config/env.js";
 import type { UserRecord } from "../types/user.js";
 
 type InterviewRecord = {
@@ -80,15 +84,92 @@ async function generateRoomId() {
     throw conflict("Could not generate a unique interview room");
 }
 
+/**
+ * What actually happened when we tried to reach a participant. The UI renders
+ * this verbatim, so it must never claim delivery that did not occur.
+ */
+export type InviteResult = {
+    userId: string;
+    email: string;
+    displayName: string;
+    role: ParticipantRole;
+    notifiedInApp: boolean;
+    emailDelivered: boolean;
+    emailReason?: string;
+    joinUrl: string;
+};
+
+function joinUrlFor(interview: InterviewRecord) {
+    return `${env.frontendUrl}/interview/${interview.id}`;
+}
+
+/**
+ * The in-app notification is the channel that always works, so it is written
+ * first and independently of email. Email is best-effort on top of it.
+ */
+async function inviteParticipant(
+    interview: InterviewRecord,
+    user: UserRecord,
+    role: ParticipantRole,
+    organizerName?: string | null,
+): Promise<InviteResult> {
+    const displayName = user.display_name ?? user.email;
+    const scheduledAt = new Date(interview.scheduled_at);
+    const when = formatWhen(scheduledAt);
+
+    let notifiedInApp = false;
+    try {
+        await notificationsRepository.create(
+            user.id,
+            "interview_invitation",
+            `${organizerName ?? "An interviewer"} invited you to "${interview.title}" starting ${when}. Open the room from your interview list.`,
+        );
+        notifiedInApp = true;
+    } catch (error) {
+        console.error(`[interview] in-app invite failed for ${user.id}:`, error);
+    }
+
+    let emailDelivered = false;
+    let emailReason: string | undefined;
+    try {
+        const result = await mailService.sendInterviewInvitation(
+            user.email,
+            displayName,
+            interview.title,
+            scheduledAt,
+            interview.duration_minutes,
+            interview.id,
+            organizerName ?? null,
+            interview.description ?? null,
+        );
+        emailDelivered = result.delivered;
+        emailReason = result.reason;
+    } catch (error) {
+        emailReason = error instanceof Error ? error.message : "send_failed";
+    }
+
+    return {
+        userId: user.id,
+        email: user.email,
+        displayName,
+        role,
+        notifiedInApp,
+        emailDelivered,
+        emailReason,
+        joinUrl: joinUrlFor(interview),
+    };
+}
+
 export const interviewService = {
     async createInterview(input: CreateInterviewInput, authUser: AuthUser) {
         if (input.scheduled_at.getTime() <= Date.now()) {
             throw badRequest("Interview must be scheduled in the future", "VALIDATION_ERROR");
         }
 
+        const { participants, ...details } = input;
         const roomId = await generateRoomId();
         const interview = await interviewRepository.create({
-            ...input,
+            ...details,
             room_id: roomId,
             created_by: authUser.userId,
             status: "scheduled",
@@ -96,7 +177,35 @@ export const interviewService = {
 
         await interviewRepository.addParticipant(interview.id, authUser.userId, "interviewer");
 
-        return sanitizeInterview(interview);
+        const organizer = await authRepository.findById(authUser.userId) as UserRecord | null;
+        const organizerName = organizer?.display_name ?? null;
+
+        const invites: InviteResult[] = [];
+        const skipped: { userId: string; reason: string }[] = [];
+        const seen = new Set<string>([authUser.userId]);
+
+        for (const p of participants) {
+            if (seen.has(p.user_id)) {
+                skipped.push({ userId: p.user_id, reason: "Duplicate participant" });
+                continue;
+            }
+            const user = await authRepository.findById(p.user_id) as UserRecord | null;
+            if (!user) {
+                skipped.push({ userId: p.user_id, reason: "User no longer exists" });
+                continue;
+            }
+            await interviewRepository.addParticipant(interview.id, user.id, p.role);
+            seen.add(user.id);
+            invites.push(await inviteParticipant(interview, user, p.role, organizerName));
+        }
+
+        const refreshed = await interviewRepository.findById(interview.id) as InterviewRecord;
+
+        return {
+            ...sanitizeInterview(refreshed),
+            invites,
+            skipped,
+        };
     },
 
     async updateInterview(id: string, input: UpdateInterviewInput, authUser: AuthUser) {
@@ -175,13 +284,25 @@ export const interviewService = {
             const participants = await interviewRepository.findParticipants(id);
             for (const p of participants) {
                 const user = await authRepository.findById(p.user_id) as UserRecord | null;
-                if (user) {
-                    mailService.sendInterviewCancellation(
+                if (!user) continue;
+
+                await notificationsRepository.create(
+                    user.id,
+                    "interview_cancelled",
+                    `"${interview.title}" has been cancelled.`,
+                ).catch((error: unknown) => {
+                    console.error(`[interview] cancellation notice failed for ${user.id}:`, error);
+                });
+
+                await mailService
+                    .sendInterviewCancellation(
                         user.email,
                         user.display_name ?? user.email,
                         interview.title,
-                    ).catch(() => {});
-                }
+                    )
+                    .catch((error: unknown) => {
+                        console.error(`[interview] cancellation email failed for ${user.id}:`, error);
+                    });
             }
         }
 
@@ -201,19 +322,20 @@ export const interviewService = {
 
         const result = await interviewRepository.addParticipant(id, input.user_id, input.role);
 
+        const organizer = await authRepository.findById(authUser.userId) as UserRecord | null;
         const user = await authRepository.findById(input.user_id) as UserRecord | null;
+
+        let invite: InviteResult | null = null;
         if (user) {
-            const scheduledAt = new Date(interview.scheduled_at);
-            mailService.sendInterviewInvitation(
-                user.email,
-                user.display_name ?? user.email,
-                interview.title,
-                scheduledAt,
-                interview.duration_minutes,
-            ).catch(() => {});
+            invite = await inviteParticipant(
+                interview,
+                user,
+                input.role,
+                organizer?.display_name ?? null,
+            );
         }
 
-        return result;
+        return { participant: result, invite };
     },
 
     async removeParticipant(id: string, input: RemoveParticipantInput, authUser: AuthUser) {

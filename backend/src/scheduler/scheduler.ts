@@ -41,12 +41,22 @@ async function interviewReminders() {
         const user = await authRepository.findById(row.user_id) as UserRecord | null;
         if (!user) continue;
 
-        mailService.sendInterviewReminder(
-            user.email,
-            user.display_name ?? user.email,
-            row.title,
-            new Date(row.scheduled_at),
-        ).catch(() => {});
+        await mailService
+            .sendInterviewReminder(
+                user.email,
+                user.display_name ?? user.email,
+                row.title,
+                new Date(row.scheduled_at),
+                row.id,
+            )
+            .then((result) => {
+                if (!result.delivered) {
+                    log("reminders", `email not delivered to ${user.email}: ${result.reason ?? "unknown"}`);
+                }
+            })
+            .catch((error: unknown) => {
+                log("reminders", `email error for ${user.email}: ${error instanceof Error ? error.message : String(error)}`);
+            });
 
         await pool.query(
             `INSERT INTO notifications (user_id, type, message)
