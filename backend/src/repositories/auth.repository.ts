@@ -121,11 +121,16 @@ export const authRepository = {
 
     async verifyEmailByTokenHash(tokenHash : string){
         const {rows} = await query(
-        `UPDATE users SET email_verified = TRUE,
-        verify_token = NULL, verify_token_expires = NULL,
-        updated_at = NOW() WHERE verify_token = $1
-        AND verify_token_expires > NOW() AND email_verified = FALSE
-        RETURNING *`,[tokenHash]
+        `WITH verified AS (
+            UPDATE users SET email_verified = TRUE,
+            verify_token = NULL, verify_token_expires = NULL,
+            updated_at = NOW() WHERE verify_token = $1
+            AND verify_token_expires > NOW() AND email_verified = FALSE
+            RETURNING *
+        )
+        SELECT v.*, p.display_name, p.avatar_url
+        FROM verified v
+        LEFT JOIN profiles p ON p.user_id = v.id`,[tokenHash]
         ); 
         return rows[0] ?? null;
     },

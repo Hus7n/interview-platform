@@ -10,9 +10,19 @@ const transport = env.smtp.host
     })
     : null;
 
-export async function sendMail(options: { to: string; subject: string; html: string }) {
+export async function sendMail(options: {
+    to: string;
+    subject: string;
+    html: string;
+    previewLink?: string;
+}) {
     if (!transport) {
-        console.log(`[mail] SMTP not configured, skipping email to ${options.to}: ${options.subject}`);
+        if (env.nodeEnv !== "production") {
+            console.log(`[mail] SMTP not configured. Skipping email to ${options.to}: ${options.subject}`);
+            if (options.previewLink) {
+                console.log(`[mail] Local link: ${options.previewLink}`);
+            }
+        }
         return;
     }
 

@@ -1,4 +1,5 @@
 import { sendMail } from "./transport.js";
+import { env } from "../config/env.js";
 import {
     verifyEmailTemplate,
     resetPasswordTemplate,
@@ -13,6 +14,7 @@ export const mailService = {
             to: email,
             subject: "Verify your email address",
             html: verifyEmailTemplate(name, token),
+            previewLink: `${env.frontendUrl}/verify-email?token=${token}`,
         });
     },
 
@@ -21,6 +23,7 @@ export const mailService = {
             to: email,
             subject: "Reset your password",
             html: resetPasswordTemplate(name, token),
+            previewLink: `${env.frontendUrl}/reset-password?token=${token}`,
         });
     },
 

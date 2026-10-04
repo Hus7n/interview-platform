@@ -1,8 +1,34 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { pool } from "./db.js";
 
-const migrationDir = join(process.cwd(), "migration");
+/**
+ * Resolve the migrations folder regardless of the directory the script is run
+ * from. `__dirname/..` resolves to the backend root for both `src/migrate.ts`
+ * (tsx) and `dist/migrate.js` (compiled).
+ */
+function resolveMigrationDir(): string {
+    const candidates = [
+        resolve(__dirname, "..", "migrations"),
+        join(process.cwd(), "migrations"),
+    ];
+
+    for (const dir of candidates) {
+        if (existsSync(dir)) return dir;
+    }
+
+    console.error(
+        [
+            "",
+            "  Could not find the migrations directory.",
+            `  Looked in: ${candidates.join(", ")}`,
+            "",
+        ].join("\n"),
+    );
+    process.exit(1);
+}
+
+const migrationDir = resolveMigrationDir();
 
 async function runMigrations() {
     const client = await pool.connect();
@@ -24,6 +50,10 @@ async function runMigrations() {
         const files = readdirSync(migrationDir)
             .filter((f) => f.endsWith(".sql"))
             .sort();
+
+        if (!files.length) {
+            console.warn(`No .sql files found in ${migrationDir}`);
+        }
 
         for (const file of files) {
             if (appliedSet.has(file)) {
